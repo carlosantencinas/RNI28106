@@ -18,6 +18,7 @@ function itemRowHtml(it) {
 // ============================================================
 
 // ---- MODAL COTIZACIONES (CON PLAZO POR ÍTEM) ----
+// ---- MODAL COTIZACIONES (CON CABECERA DE ÍTEMS) ----
 function openCotModal(cot) {
     const isNew = !cot;
     const c = cot ? JSON.parse(JSON.stringify(cot)) : {
@@ -26,9 +27,9 @@ function openCotModal(cot) {
         proyecto: '',
         cliente: '',
         titulo: '',
-        items: [{ id: uid(), actividad: '', pu: 0, unidad: '', cantidad: 1, plazo: 0 }], // <-- AGREGADO plazo
+        items: [{ id: uid(), actividad: '', pu: 0, unidad: '', cantidad: 1, plazo: 0 }],
         descuento: 0,
-        plazoDias: 0, // <-- SE CALCULARÁ AUTOMÁTICAMENTE
+        plazoDias: 0,
         nota: S.config.defaultNota || '',
         entregables: S.config.defaultEntregables || '',
         estado: 'borrador'
@@ -69,7 +70,17 @@ function openCotModal(cot) {
                     </div>
                 </div>
                 
-                <label style="display:block;font-family:'JetBrains Mono';font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-soft);margin-bottom:8px;">Ítems</label>
+                <!-- ========== CABECERA DE ÍTEMS ========== -->
+                <div style="display:grid;grid-template-columns:1fr 80px 70px 50px 70px 30px;gap:8px;align-items:center;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-soft);font-weight:600;padding:0 4px;">
+                    <span>Actividad</span>
+                    <span style="text-align:right;">P.U. [Bs]</span>
+                    <span>Unidad</span>
+                    <span style="text-align:center;">Cant.</span>
+                    <span style="text-align:center;">Plazo</span>
+                    <span style="text-align:center;"></span>
+                </div>
+                <!-- ======================================== -->
+                
                 <div class="items-block" id="items-block">
                     ${c.items.map(it => itemRowHtmlConPlazo(it)).join('')}
                 </div>
