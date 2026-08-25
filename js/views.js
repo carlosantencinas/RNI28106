@@ -600,55 +600,34 @@ function viewPagos() {
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
+// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
 function renderPagoDetalle(pago, cot, historialPagos) {
     const saldo = Number(pago.monto) - Number(pago.montoPagado || 0);
     const esCompletamentePagado = saldo <= 0.01;
 
     // ============================================================
-    // IMPORTANTE: OBTENER TODOS LOS PAGOS ASOCIADOS A ESTA DEUDA
+    // OBTENER TODOS LOS PAGOS ASOCIADOS - BUSCAR POR cotizacionId
     // ============================================================
     let todosLosPagos = [];
     
-    // ESTRATEGIA 1: Buscar por cotizacionId
+    // ESTRATEGIA 1: Buscar por cotizacionId (la más confiable)
     if (pago.cotizacionId) {
         // Buscar TODOS los pagos que tengan la misma cotizacionId
-        // Incluyendo el pago principal si tiene un montoPagado > 0
+        // Y que tengan montoPagado > 0 (pagos reales)
         todosLosPagos = S.pagos.filter(p => 
             p.cotizacionId === pago.cotizacionId && 
-            p.id !== pago.id // Excluir el pago principal para no duplicarlo
+            p.id !== pago.id && // Excluir el pago principal
+            Number(p.montoPagado || 0) > 0 // Solo pagos con monto > 0
         );
     }
     
-    // ESTRATEGIA 2: Si no hay pagos por cotizacionId, buscar por cliente + descripción
-    if (todosLosPagos.length === 0) {
-        // Buscar pagos que tengan el mismo cliente y descripción similar
-        const descripcionBase = pago.descripcion || '';
+    // ESTRATEGIA 2: Si no se encontraron por cotizacionId, buscar por cliente
+    if (todosLosPagos.length === 0 && pago.cliente) {
         todosLosPagos = S.pagos.filter(p => 
             p.cliente === pago.cliente && 
-            p.descripcion && p.descripcion.includes(descripcionBase.substring(0, 20)) &&
-            p.id !== pago.id &&
-            Number(p.montoPagado || 0) > 0
-        );
-    }
-    
-    // ESTRATEGIA 3: Buscar pagos que tengan el mismo cliente y proyecto
-    if (todosLosPagos.length === 0 && cot) {
-        const proyecto = cot.proyecto || '';
-        todosLosPagos = S.pagos.filter(p => 
-            p.cliente === pago.cliente && 
-            p.descripcion && p.descripcion.includes(proyecto.substring(0, 20)) &&
-            p.id !== pago.id &&
-            Number(p.montoPagado || 0) > 0
-        );
-    }
-    
-    // ESTRATEGIA 4: Buscar pagos que tengan el mismo monto total
-    if (todosLosPagos.length === 0) {
-        todosLosPagos = S.pagos.filter(p => 
-            Number(p.monto) === Number(pago.monto) &&
-            p.cliente === pago.cliente &&
-            p.id !== pago.id &&
-            Number(p.montoPagado || 0) > 0
+            p.id !== pago.id && 
+            Number(p.montoPagado || 0) > 0 &&
+            p.descripcion && p.descripcion.includes('Pago parcial')
         );
     }
 
@@ -658,14 +637,15 @@ function renderPagoDetalle(pago, cot, historialPagos) {
     // Calcular total pagado en historial
     const totalHistorial = todosLosPagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
 
-    // Escapar IDs para evitar problemas con comillas
+    // Escapar IDs
     const pagoId = pago.id;
     const cotId = cot ? cot.id : '';
 
-    // DEBUG: Mostrar en consola para depuración
-    console.log('Pago principal:', pago);
-    console.log('Pagos encontrados en historial:', todosLosPagos);
-    console.log('Total pagado en historial:', totalHistorial);
+    // DEBUG
+    console.log('🔍 Pago principal:', pago);
+    console.log('🔍 Pagos encontrados en historial:', todosLosPagos);
+    console.log('🔍 Total pagado en historial:', totalHistorial);
+    console.log('🔍 Total pagos en S.pagos:', S.pagos.length);
 
     return `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -785,7 +765,6 @@ function renderPagoDetalle(pago, cot, historialPagos) {
         </div>
     `;
 }
-
 // ---- FUNCIÓN PARA ABRIR COTIZACIÓN (CORREGIDA) ----
 function abrirCotizacion(cotId) {
     if (!cotId) {
