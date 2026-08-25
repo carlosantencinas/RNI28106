@@ -15,6 +15,7 @@ window.clearExpFilters = clearExpFilters;
 window.clearLicFilters = clearLicFilters;
 window.clearContFilters = clearContFilters;
 window.calcularEdad = calcularEdad;
+window.openColumnSelectorModal = openColumnSelectorModal;
 
 // ============================================================
 // BIND APP EVENTS - Manejadores de eventos
@@ -436,6 +437,7 @@ function bindAppEvents() {
             selectedSpan.textContent = `${selectedCount} seleccionados`;
         }
         
+        // Botón de exportar directo
         const exportBtn = document.getElementById('btn-export-debts');
         if (exportBtn) {
             const validSelected = Array.from(checkboxes)
@@ -445,6 +447,16 @@ function bindAppEvents() {
             const count = validSelected.length;
             exportBtn.disabled = count === 0;
             exportBtn.textContent = `📤 Exportar deuda (${count})`;
+        }
+
+        // Botón de selección de columnas
+        const selectColumnsBtn = document.getElementById('btn-select-columns');
+        if (selectColumnsBtn) {
+            const validSelected = Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => S.pagos.find(p => p.id === cb.dataset.id))
+                .filter(p => p && (Number(p.monto) - Number(p.montoPagado || 0)) > 0.01);
+            selectColumnsBtn.disabled = validSelected.length === 0;
         }
         
         const selectAll = document.getElementById('select-all-debts');
@@ -494,11 +506,27 @@ function bindAppEvents() {
         };
     }
 
+    // Botón de exportar directo (usa todas las columnas)
     const exportDebtsBtn = document.getElementById('btn-export-debts');
     if (exportDebtsBtn) {
         exportDebtsBtn.onclick = () => {
             const selectedIds = Array.from(S.selectedDebts);
-            exportDebts(selectedIds);
+            // Usar todas las columnas por defecto
+            const allColumns = Object.keys(DEBT_COLUMNS);
+            exportDebtsWithColumns(selectedIds, allColumns);
+        };
+    }
+
+    // Nuevo botón para seleccionar columnas
+    const selectColumnsBtn = document.getElementById('btn-select-columns');
+    if (selectColumnsBtn) {
+        selectColumnsBtn.onclick = () => {
+            const selectedIds = Array.from(S.selectedDebts);
+            if (selectedIds.length === 0) {
+                toast('⚠️ Selecciona al menos una deuda.');
+                return;
+            }
+            openColumnSelectorModal();
         };
     }
 
