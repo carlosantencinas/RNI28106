@@ -155,6 +155,7 @@ function renderExperienciaTabla() {
 }
 
 // ---- DASHBOARD (con pagos pendientes mejorados) ----
+// ---- DASHBOARD (CON MONTO TOTAL DE EXPERIENCIA Y NÚMEROS GRANDES) ----
 function viewDashboard() {
     const cots = S.cotizaciones;
     const pagos = S.pagos;
@@ -203,7 +204,10 @@ function viewDashboard() {
     const totalAceptado = cots.filter(c => c.estado === 'aceptada').reduce((s, c) => s + cotTotal(c), 0);
     const totalCobrado = pagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
     const totalPorCobrar = pagos.reduce((s, p) => s + Math.max(0, Number(p.monto) - Number(p.montoPagado || 0)), 0);
+    
+    // ========== MONTO TOTAL DE EXPERIENCIA ==========
     const totalExperiencia = exp.reduce((s, e) => s + Number(e.monto || 0), 0);
+    
     const edad = calcularEdad(S.datosPersonales.fechaNacimiento);
 
     const adjudicadas = lic.filter(l => l.estado === 'adjudicada').length;
@@ -211,7 +215,7 @@ function viewDashboard() {
     const noAdjudicadas = lic.filter(l => l.estado === 'no-adjudicada').length;
     const totalLicitaciones = lic.length;
 
-    // ---- AVANCE DE PAGOS PENDIENTES (estilo imagen) ----
+    // ---- AVANCE DE PAGOS PENDIENTES ----
     const cotizacionesAceptadas = cots.filter(c => c.estado === 'aceptada');
     const avancePagos = cotizacionesAceptadas.map(c => {
         const montoTotal = cotTotal(c);
@@ -230,7 +234,6 @@ function viewDashboard() {
         };
     }).filter(item => !item.estaPagado);
 
-    // ---- FUNCIÓN PARA RENDERIZAR AVANCE DE PAGOS ----
     function renderAvancePagos() {
         if (!avancePagos.length) {
             return `<div class="empty" style="padding:20px;">${ICONS.empty}<div>🎉 No hay cotizaciones aceptadas pendientes de pago.</div></div>`;
@@ -238,7 +241,6 @@ function viewDashboard() {
 
         let html = '';
         avancePagos.forEach(item => {
-            // Obtener el último pago para mostrar su fecha y descripción
             const ultimoPago = item.pagos.length > 0 ? item.pagos[item.pagos.length - 1] : null;
             
             html += `
@@ -292,6 +294,74 @@ function viewDashboard() {
         return html;
     }
 
+    // ========== GRÁFICO DE MONTOS POR CARGO CON NÚMEROS GRANDES ==========
+    function renderCargosChart() {
+        if (!exp.length) {
+            return '<div style="color:var(--text-soft);font-size:13px;">Sin datos de experiencia aún.</div>';
+        }
+        
+        const porCargo = {};
+        exp.forEach(e => { 
+            const cargo = e.cargo || 'Sin cargo';
+            porCargo[cargo] = (porCargo[cargo] || 0) + Number(e.monto || 0); 
+        });
+        
+        const topCargos = Object.entries(porCargo).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        const maxCargo = Math.max(1, ...topCargos.map(x => x[1]));
+        const colores = ['#1A4A5C', '#3A7A8F', '#B8862E', '#27AE60', '#C0392B', '#8E44AD'];
+        
+        return topCargos.map(([cargo, monto], i) => {
+            // Formatear el monto con separadores de miles
+            const montoFormateado = bs(monto);
+            const porcentaje = (monto / maxCargo * 100) || 0;
+            
+            return `
+                <div class="chart-bar-row">
+                    <span class="label" title="${esc(cargo)}">${esc(cargo.slice(0, 25))}${cargo.length>25?'…':''}</span>
+                    <div class="track">
+                        <div class="fill" style="width:${porcentaje}%;background:${colores[i % colores.length]};"></div>
+                    </div>
+                    <span class="value" style="font-size:11px;min-width:90px;">${montoFormateado}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ========== GRÁFICO DE MONTOS POR ENTIDAD CON NÚMEROS GRANDES ==========
+    function renderEntidadesChart() {
+        if (!exp.length) {
+            return '<div style="color:var(--text-soft);font-size:13px;">Sin datos de experiencia aún.</div>';
+        }
+        
+        const porEntidad = {};
+        exp.forEach(e => { 
+            const entidad = e.entidad || 'Sin entidad';
+            porEntidad[entidad] = (porEntidad[entidad] || 0) + Number(e.monto || 0); 
+        });
+        
+        const topEntidades = Object.entries(porEntidad).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        const maxEntidad = Math.max(1, ...topEntidades.map(x => x[1]));
+        const colores = ['#1A4A5C', '#3A7A8F', '#B8862E', '#27AE60', '#C0392B', '#8E44AD'];
+        
+        return topEntidades.map(([entidad, monto], i) => {
+            const montoFormateado = bs(monto);
+            const porcentaje = (monto / maxEntidad * 100) || 0;
+            
+            return `
+                <div class="chart-bar-row">
+                    <span class="label" title="${esc(entidad)}">${esc(entidad.slice(0, 20))}${entidad.length>20?'…':''}</span>
+                    <div class="track">
+                        <div class="fill" style="width:${porcentaje}%;background:${colores[(i+2) % colores.length]};"></div>
+                    </div>
+                    <span class="value" style="font-size:11px;min-width:90px;">${montoFormateado}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ============================================================
+    // HTML DEL DASHBOARD
+    // ============================================================
     return `
     <div class="page-head">
         <div><p class="eyebrow">Panel general</p><h1>Dashboard</h1><p>Resumen de cotizaciones, cobros, experiencia y licitaciones.</p></div>
@@ -308,52 +378,26 @@ function viewDashboard() {
         <div class="kpi danger"><div class="label">No adjudicadas</div><div class="val">${noAdjudicadas}</div><div class="sub">${totalLicitaciones > 0 ? Math.round(noAdjudicadas/totalLicitaciones*100) : 0}% del total</div></div>
     </div>
 
+    <!-- ========== NUEVO KPI: MONTO TOTAL DE EXPERIENCIA ========== -->
+    <div class="kpi-grid" style="margin-top:-10px;">
+        <div class="kpi" style="grid-column: span 2;">
+            <div class="label">💰 Monto total de experiencia</div>
+            <div class="val" style="font-size:28px;">${bs(totalExperiencia)}</div>
+            <div class="sub">${exp.length} proyectos registrados</div>
+        </div>
+    </div>
+
     <div class="dash-grid-2">
         <div class="panel">
             <div class="panel-h"><h3>📊 Monto por cargo</h3></div>
             <div class="panel-body">
-                ${exp.length ? (() => {
-                    const porCargo = {};
-                    exp.forEach(e => { porCargo[e.cargo] = (porCargo[e.cargo] || 0) + Number(e.monto || 0); });
-                    const topCargos = Object.entries(porCargo).sort((a, b) => b[1] - a[1]).slice(0, 6);
-                    const maxCargo = Math.max(1, ...topCargos.map(x => x[1]));
-                    const colores = ['#1A4A5C', '#3A7A8F', '#B8862E', '#27AE60', '#C0392B', '#8E44AD'];
-                    return topCargos.map(([cargo, monto], i) => `
-                        <div class="chart-bar-row">
-                            <span class="label" title="${esc(cargo)}">${esc(cargo.slice(0, 25))}${cargo.length>25?'…':''}</span>
-                            <div class="track">
-                                <div class="fill" style="width:${(monto/maxCargo*100)||0}%;background:${colores[i % colores.length]};"></div>
-                            </div>
-                            <span class="value">${bs(monto)}</span>
-                        </div>
-                    `).join('');
-                })() : '<div style="color:var(--text-soft);font-size:13px;">Sin datos de experiencia aún.</div>'}
+                ${renderCargosChart()}
             </div>
         </div>
         <div class="panel">
-            <div class="panel-h"><h3>📊 Licitaciones por estado</h3></div>
+            <div class="panel-h"><h3>🏢 Monto por entidad</h3></div>
             <div class="panel-body">
-                ${lic.length ? (() => {
-                    const estados = [
-                        { label: 'Presentada', key: 'presentada', color: '#5A5A5A' },
-                        { label: 'En evaluación', key: 'evaluacion', color: '#F39C12' },
-                        { label: 'Adjudicada', key: 'adjudicada', color: '#27AE60' },
-                        { label: 'No adjudicada', key: 'no-adjudicada', color: '#C0392B' },
-                        { label: 'En curso', key: 'en-curso', color: '#B8862E' }
-                    ];
-                    const counts = {};
-                    lic.forEach(l => { counts[l.estado] = (counts[l.estado] || 0) + 1; });
-                    const maxVal = Math.max(1, ...Object.values(counts));
-                    return estados.map(e => `
-                        <div class="chart-bar-row">
-                            <span class="label">${e.label}</span>
-                            <div class="track">
-                                <div class="fill" style="width:${((counts[e.key]||0)/maxVal*100)||0}%;background:${e.color};"></div>
-                            </div>
-                            <span class="value">${counts[e.key]||0}</span>
-                        </div>
-                    `).join('');
-                })() : '<div style="color:var(--text-soft);font-size:13px;">Sin licitaciones registradas aún.</div>'}
+                ${renderEntidadesChart()}
             </div>
         </div>
     </div>
@@ -387,7 +431,6 @@ function viewDashboard() {
         </div>
     </div>`;
 }
-
 // ---- COTIZACIONES ----
 // ---- COTIZACIONES (CON PLAZO) ----
 function viewCotizaciones() {
