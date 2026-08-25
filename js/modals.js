@@ -309,6 +309,7 @@ function openPagoModal(pago) {
 
 // ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
 // ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
+// ---- REGISTRAR PAGO PARCIAL (MEJORADO - CON ASOCIACIÓN CORRECTA) ----
 function openRegisterPagoModal(pago) {
     // Verificar que el pago existe
     if (!pago) {
@@ -380,6 +381,11 @@ function openRegisterPagoModal(pago) {
                         <strong>Notas existentes:</strong> ${esc(pago.notas)}
                     </div>
                 ` : ''}
+                <div style="font-size:11px;color:var(--text-soft);margin-top:8px;padding:6px 10px;background:var(--gantt-bg);border-radius:4px;">
+                    <strong>ℹ️ Información de asociación:</strong><br>
+                    Cotización ID: ${pago.cotizacionId || 'No asociado'}<br>
+                    Cliente: ${esc(pago.cliente)}
+                </div>
             </div>
             <div class="modal-foot">
                 <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
@@ -429,10 +435,12 @@ function openRegisterPagoModal(pago) {
             return;
         }
 
-        // Crear un nuevo registro de pago (independiente)
+        // ============================================================
+        // IMPORTANTE: CREAR EL NUEVO PAGO CON LA MISMA cotizacionId
+        // ============================================================
         const nuevoPago = {
             id: uid(),
-            cotizacionId: pago.cotizacionId || '',
+            cotizacionId: pago.cotizacionId || '', // <--- CLAVE: mantener la misma cotizacionId
             cliente: pago.cliente,
             descripcion: `Pago parcial - ${pago.descripcion || 'Deuda'}`,
             monto: total,
@@ -443,6 +451,8 @@ function openRegisterPagoModal(pago) {
             metodoPago: metodo || '',
             comprobante: comprobante || ''
         };
+
+        console.log('Nuevo pago registrado:', nuevoPago);
 
         // Agregar el nuevo pago al array
         S.pagos.push(nuevoPago);
@@ -467,7 +477,6 @@ function openRegisterPagoModal(pago) {
         toast('✅ Pago registrado exitosamente.');
     };
 }
-
 // ============================================================
 // REGISTRAR PAGO DESDE COTIZACIÓN
 // ============================================================
