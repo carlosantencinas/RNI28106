@@ -598,12 +598,35 @@ function viewPagos() {
 
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO ----
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
+// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
 function renderPagoDetalle(pago, cot, historialPagos) {
     const saldo = Number(pago.monto) - Number(pago.montoPagado || 0);
     const esCompletamentePagado = saldo <= 0.01;
 
+    // OBTENER TODOS LOS PAGOS ASOCIADOS A ESTA DEUDA
+    // Buscar todos los pagos que tengan la misma cotizacionId o que estén vinculados
+    let todosLosPagos = [];
+    
+    if (pago.cotizacionId) {
+        // Si tiene cotizacionId, buscar todos los pagos con esa cotizacionId
+        todosLosPagos = S.pagos.filter(p => 
+            p.cotizacionId === pago.cotizacionId && 
+            p.id !== pago.id // Excluir el pago principal para no duplicarlo
+        );
+    } else {
+        // Si no tiene cotizacionId, buscar por cliente y descripción similar
+        todosLosPagos = S.pagos.filter(p => 
+            p.cliente === pago.cliente && 
+            p.descripcion === pago.descripcion &&
+            p.id !== pago.id
+        );
+    }
+
+    // Ordenar por fecha (más reciente primero)
+    todosLosPagos.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
     // Calcular total pagado en historial
-    const totalHistorial = historialPagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
+    const totalHistorial = todosLosPagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
 
     // Escapar IDs para evitar problemas con comillas
     const pagoId = pago.id;
@@ -651,30 +674,30 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                     
                     ${pago.notas ? `
                         <div><strong>Notas:</strong></div>
-                        <div style="grid-column:span 2;font-size:12px;color:var(--text-soft);padding:4px 8px;background:var(--gantt-bg);border-radius:4px;">${esc(pago.notas)}</div>
+                        <div style="grid-column:span 2;font-size:12px;color:var(--text-soft);padding:4px 8px;background:var(--gantt-bg);border-radius:4px;white-space:pre-wrap;">${esc(pago.notas)}</div>
                     ` : ''}
                 </div>
             </div>
 
             <!-- Columna Derecha: Registro de pagos y acciones -->
             <div>
-                <div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">💰 Registro de pagos</div>
+                <div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">💰 Registro de pagos (${todosLosPagos.length})</div>
                 
-                ${historialPagos.length > 0 ? `
+                ${todosLosPagos.length > 0 ? `
                     <div class="payment-history" style="max-height:250px;margin-bottom:12px;">
-                        ${historialPagos.map(p => `
+                        ${todosLosPagos.map(p => `
                             <div class="entry" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
-                                <div style="flex:1;">
+                                <div style="flex:1;min-width:0;">
                                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                                        <span style="font-weight:500;">${fmtDate(p.fecha)}</span>
-                                        <span style="font-size:12px;">- ${esc(p.descripcion)}</span>
+                                        <span style="font-weight:500;white-space:nowrap;">${fmtDate(p.fecha)}</span>
+                                        <span style="font-size:12px;word-break:break-word;">${esc(p.descripcion || 'Pago parcial')}</span>
                                         ${p.metodoPago ? `<span class="metodo-pago-badge ${p.metodoPago}" style="font-size:9px;">${metodoPagoLabel(p.metodoPago)}</span>` : ''}
                                         ${p.comprobante ? `<span class="comprobante-num" style="font-size:9px;">#${esc(p.comprobante)}</span>` : ''}
                                     </div>
-                                    ${p.notas ? `<div style="font-size:11px;color:var(--text-soft);margin-top:2px;">${esc(p.notas)}</div>` : ''}
+                                    ${p.notas ? `<div style="font-size:11px;color:var(--text-soft);margin-top:2px;word-break:break-word;">${esc(p.notas)}</div>` : ''}
                                 </div>
-                                <div style="display:flex;align-items:center;gap:8px;">
-                                    <span style="font-weight:600;font-size:13px;">${bs(p.montoPagado)}</span>
+                                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:8px;">
+                                    <span style="font-weight:600;font-size:13px;white-space:nowrap;">${bs(p.montoPagado)}</span>
                                     <button class="iconbtn" style="padding:2px 5px;font-size:11px;color:var(--danger);border-color:var(--danger);" 
                                         onclick="eliminarPagoHistorial('${p.id}')" title="Eliminar este pago">
                                         ✕
@@ -718,9 +741,6 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                             📄 Ver cotización
                         </button>
                     ` : ''}
-                    <button class="btn btn-sm btn-danger" onclick="eliminarPagoPrincipal('${pagoId}')" style="border-color:var(--danger);color:var(--danger);">
-                        🗑️ Eliminar deuda
-                    </button>
                 </div>
             </div>
         </div>
