@@ -310,6 +310,7 @@ function openPagoModal(pago) {
 // ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
 // ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
 // ---- REGISTRAR PAGO PARCIAL (MEJORADO - CON ASOCIACIÓN CORRECTA) ----
+// ---- REGISTRAR PAGO PARCIAL (CORREGIDO - CREA REGISTROS SEPARADOS) ----
 function openRegisterPagoModal(pago) {
     // Verificar que el pago existe
     if (!pago) {
@@ -345,8 +346,8 @@ function openRegisterPagoModal(pago) {
                     </div>
                 </div>
                 <div class="field">
-                    <label>Nuevo monto pagado [Bs]</label>
-                    <input id="rp-pagado-nuevo" type="number" step="0.01" placeholder="Ingresa el monto que se ha pagado" value="${pago.montoPagado||0}">
+                    <label>Monto a pagar [Bs]</label>
+                    <input id="rp-pagado-nuevo" type="number" step="0.01" placeholder="Ingresa el monto que se va a pagar" value="">
                     <div style="font-size:12px;color:var(--text-soft);margin-top:4px;">
                         Saldo pendiente: <strong id="rp-saldo">${bs(Number(pago.monto) - Number(pago.montoPagado||0))}</strong>
                     </div>
@@ -382,9 +383,7 @@ function openRegisterPagoModal(pago) {
                     </div>
                 ` : ''}
                 <div style="font-size:11px;color:var(--text-soft);margin-top:8px;padding:6px 10px;background:var(--gantt-bg);border-radius:4px;">
-                    <strong>ℹ️ Información de asociación:</strong><br>
-                    Cotización ID: ${pago.cotizacionId || 'No asociado'}<br>
-                    Cliente: ${esc(pago.cliente)}
+                    <strong>ℹ️ Este pago se registrará como un nuevo registro independiente</strong>
                 </div>
             </div>
             <div class="modal-foot">
@@ -399,8 +398,9 @@ function openRegisterPagoModal(pago) {
     const saldoSpan = overlay.querySelector('#rp-saldo');
     inputNuevo.addEventListener('input', () => {
         const total = Number(pago.monto);
+        const pagadoActual = Number(pago.montoPagado || 0);
         const nuevoPagado = Number(inputNuevo.value) || 0;
-        const saldo = total - nuevoPagado;
+        const saldo = total - (pagadoActual + nuevoPagado);
         saldoSpan.textContent = bs(Math.max(0, saldo));
     });
 
@@ -413,38 +413,34 @@ function openRegisterPagoModal(pago) {
     overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
 
     overlay.querySelector('#m-save').onclick = async () => {
-        const nuevoPagado = Number(inputNuevo.value) || 0;
+        const montoAPagar = Number(inputNuevo.value) || 0;
         const total = Number(pago.monto);
+        const pagadoActual = Number(pago.montoPagado || 0);
         const metodo = overlay.querySelector('#rp-metodo').value;
         const comprobante = overlay.querySelector('#rp-comprobante').value.trim();
         const fechaPago = overlay.querySelector('#rp-fecha-pago').value;
         const notasAdicionales = overlay.querySelector('#rp-notas').value.trim();
 
-        if (nuevoPagado <= 0) {
+        if (montoAPagar <= 0) {
             toast('⚠️ Ingresa un monto válido.');
             return;
         }
 
-        if (nuevoPagado > total) {
-            toast('⚠️ El monto pagado no puede ser mayor al monto total.');
-            return;
-        }
-
-        if (nuevoPagado <= (pago.montoPagado || 0)) {
-            toast('⚠️ El nuevo monto debe ser mayor al monto ya pagado.');
+        if (montoAPagar > (total - pagadoActual)) {
+            toast(`⚠️ El monto no puede ser mayor al saldo pendiente (${bs(total - pagadoActual)}).`);
             return;
         }
 
         // ============================================================
-        // IMPORTANTE: CREAR EL NUEVO PAGO CON LA MISMA cotizacionId
+        // CREAR UN NUEVO REGISTRO DE PAGO INDEPENDIENTE
         // ============================================================
         const nuevoPago = {
             id: uid(),
-            cotizacionId: pago.cotizacionId || '', // <--- CLAVE: mantener la misma cotizacionId
+            cotizacionId: pago.cotizacionId || '', // Mantener la misma cotizacionId para asociación
             cliente: pago.cliente,
             descripcion: `Pago parcial - ${pago.descripcion || 'Deuda'}`,
-            monto: total,
-            montoPagado: nuevoPagado,
+            monto: total, // El monto total de la deuda (para referencia)
+            montoPagado: montoAPagar, // El monto que se está pagando ahora
             fecha: fechaPago || new Date().toISOString().slice(0, 10),
             fechaCompromiso: fechaPago || new Date().toISOString().slice(0, 10),
             notas: notasAdicionales || '',
@@ -452,25 +448,29 @@ function openRegisterPagoModal(pago) {
             comprobante: comprobante || ''
         };
 
-        console.log('Nuevo pago registrado:', nuevoPago);
+        console.log('✅ Nuevo pago registrado:', nuevoPago);
 
-        // Agregar el nuevo pago al array
+        // 1. AGREGAR EL NUEVO PAGO AL ARRAY DE PAGOS
         S.pagos.push(nuevoPago);
         
-        // Actualizar el montoPagado del pago principal
+        // 2. ACTUALIZAR EL MONTO PAGADO DEL PAGO PRINCIPAL
         const pagoPrincipalIndex = S.pagos.findIndex(p => p.id === pago.id);
         if (pagoPrincipalIndex !== -1) {
             const pagoPrincipal = S.pagos[pagoPrincipalIndex];
-            pagoPrincipal.montoPagado = nuevoPagado;
+            const nuevoTotalPagado = pagadoActual + montoAPagar;
+            pagoPrincipal.montoPagado = nuevoTotalPagado;
             
             // Agregar nota sobre el pago
-            const notaPago = `💰 Pago de ${bs(nuevoPagado)} registrado el ${fmtDate(nuevoPago.fecha)}${metodo ? ` (${metodoPagoLabel(metodo)})` : ''}${comprobante ? ` #${comprobante}` : ''}`;
+            const notaPago = `💰 Pago de ${bs(montoAPagar)} registrado el ${fmtDate(nuevoPago.fecha)}${metodo ? ` (${metodoPagoLabel(metodo)})` : ''}${comprobante ? ` #${comprobante}` : ''}`;
             pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaPago : notaPago;
             
             S.pagos[pagoPrincipalIndex] = pagoPrincipal;
+            console.log('✅ Pago principal actualizado:', pagoPrincipal);
         }
 
+        // 3. GUARDAR EN FIREBASE
         await savePagos(S.user?.uid);
+        
         closeModal();
         S.expandedPagoId = pago.id; // Mantener expandido el detalle
         render();
