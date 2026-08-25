@@ -451,6 +451,7 @@ function viewCotizaciones() {
 
 // ---- PAGOS POR COBRAR (con checkboxes y proyecto) ----
 // ---- PAGOS POR COBRAR (con checkboxes, proyecto y selector de columnas) ----
+// ---- PAGOS POR COBRAR (con sub-pestaña de detalle y pagos parciales) ----
 function viewPagos() {
     const rows = applyPagoFiltersAndSort(S.pagos || []);
     const estados = ['pendiente', 'parcial', 'pagado'];
@@ -465,6 +466,11 @@ function viewPagos() {
         .filter(p => S.selectedDebts.has(p.id))
         .filter(p => (Number(p.monto) - Number(p.montoPagado || 0)) > 0.01);
     const validCount = validSelected.length;
+
+    // Estado para la sub-pestaña expandida
+    if (typeof S.expandedPagoId === 'undefined') {
+        S.expandedPagoId = null;
+    }
 
     let tableHtml = '';
     if (rows.length) {
@@ -505,18 +511,31 @@ function viewPagos() {
                     ${rows.map(p => {
                         const saldo = Number(p.monto) - Number(p.montoPagado || 0);
                         const isSelected = S.selectedDebts.has(p.id);
+                        const isExpanded = S.expandedPagoId === p.id;
                         // Obtener el proyecto de la cotización relacionada
                         let proyecto = '—';
+                        let cot = null;
                         if (p.cotizacionId) {
-                            const cot = S.cotizaciones.find(c => c.id === p.cotizacionId);
+                            cot = S.cotizaciones.find(c => c.id === p.cotizacionId);
                             if (cot) proyecto = cot.proyecto || '—';
                         }
+
+                        // Obtener el historial de pagos para esta deuda
+                        const historialPagos = S.pagos.filter(pago => 
+                            pago.cotizacionId === p.cotizacionId && pago.id !== p.id
+                        );
+
                         return `<tr>
-                            <td style="text-align:center;">
+                            <td style="text-align:center;vertical-align:middle;">
                                 <input type="checkbox" class="debt-checkbox" data-id="${p.id}" ${isSelected ? 'checked' : ''}>
                             </td>
                             <td class="tnum" style="white-space:nowrap;">${fmtDate(p.fecha)}</td>
-                            <td style="font-weight:500;">${esc(p.descripcion||'—')}</td>
+                            <td style="font-weight:500;">
+                                ${esc(p.descripcion||'—')}
+                                <button class="iconbtn" style="margin-left:6px;padding:2px 6px;font-size:11px;" onclick="togglePagoDetalle('${p.id}')" title="Ver detalle">
+                                    ${isExpanded ? '▲' : '▼'}
+                                </button>
+                            </td>
                             <td>${esc(p.cliente||'—')}</td>
                             <td>${esc(proyecto)}</td>
                             <td class="tright tnum">${bs(p.monto)}</td>
@@ -534,7 +553,16 @@ function viewPagos() {
                                     <button class="iconbtn" title="Eliminar" data-del-pago="${p.id}">${ICONS.trash}</button>
                                 </div>
                             </td>
-                        </tr>`;
+                        </tr>
+                        ${isExpanded ? `
+                        <tr>
+                            <td colspan="11" style="padding:0;background:var(--surface-hover);">
+                                <div style="padding:16px 20px;border-top:2px solid var(--primary);border-bottom:1px solid var(--border);">
+                                    ${renderPagoDetalle(p, cot, historialPagos)}
+                                </div>
+                            </td>
+                        </tr>
+                        ` : ''}`;
                     }).join('')}
                 </tbody>
             </table></div>`;
@@ -566,6 +594,158 @@ function viewPagos() {
             ${tableHtml}
         </div>
     </div>`;
+}
+
+// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO ----
+function renderPagoDetalle(pago, cot, historialPagos) {
+    const saldo = Number(pago.monto) - Number(pago.montoPagado || 0);
+    const esCompletamentePagado = saldo <= 0.01;
+
+    // Calcular total pagado en historial
+    const totalHistorial = historialPagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
+
+    return `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <!-- Columna Izquierda: Información del trabajo -->
+            <div>
+                <div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">📋 Información del trabajo</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;">
+                    <div><strong>Descripción:</strong></div>
+                    <div>${esc(pago.descripcion||'—')}</div>
+                    
+                    <div><strong>Cliente:</strong></div>
+                    <div>${esc(pago.cliente||'—')}</div>
+                    
+                    <div><strong>Proyecto:</strong></div>
+                    <div>${cot ? esc(cot.proyecto || '—') : '—'}</div>
+                    
+                    <div><strong>Fecha registro:</strong></div>
+                    <div>${fmtDate(pago.fecha)}</div>
+                    
+                    <div><strong>Monto total:</strong></div>
+                    <div style="font-weight:600;">${bs(pago.monto)}</div>
+                    
+                    <div><strong>Pagado:</strong></div>
+                    <div style="color:var(--success);font-weight:600;">${bs(pago.montoPagado||0)}</div>
+                    
+                    <div><strong>Saldo pendiente:</strong></div>
+                    <div style="color:${saldo > 0 ? 'var(--danger)' : 'var(--success)'};font-weight:600;">${bs(saldo)}</div>
+                    
+                    <div><strong>Estado:</strong></div>
+                    <div><span class="stamp ${pagoEstado(pago)}">${pagoEstado(pago)}</span></div>
+                    
+                    ${pago.metodoPago ? `
+                        <div><strong>Método de pago:</strong></div>
+                        <div><span class="metodo-pago-badge ${pago.metodoPago}">${metodoPagoLabel(pago.metodoPago)}</span></div>
+                    ` : ''}
+                    
+                    ${pago.comprobante ? `
+                        <div><strong>Comprobante:</strong></div>
+                        <div><span class="comprobante-num">#${esc(pago.comprobante)}</span></div>
+                    ` : ''}
+                    
+                    ${pago.notas ? `
+                        <div><strong>Notas:</strong></div>
+                        <div style="grid-column:span 2;font-size:12px;color:var(--text-soft);padding:4px 8px;background:var(--gantt-bg);border-radius:4px;">${esc(pago.notas)}</div>
+                    ` : ''}
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Registro de pagos y acciones -->
+            <div>
+                <div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">💰 Registro de pagos</div>
+                
+                ${historialPagos.length > 0 ? `
+                    <div class="payment-history" style="max-height:180px;margin-bottom:12px;">
+                        ${historialPagos.map(p => `
+                            <div class="entry">
+                                <span>
+                                    ${fmtDate(p.fecha)} - ${esc(p.descripcion)}
+                                    ${p.metodoPago ? `<span class="metodo-pago-badge ${p.metodoPago}">${metodoPagoLabel(p.metodoPago)}</span>` : ''}
+                                    ${p.comprobante ? `<span class="comprobante-num">#${esc(p.comprobante)}</span>` : ''}
+                                </span>
+                                <span style="font-weight:500;">${bs(p.montoPagado)}</span>
+                            </div>
+                        `).join('')}
+                        <div class="entry" style="font-weight:600;border-top:2px solid var(--border);padding-top:6px;margin-top:4px;">
+                            <span>Total pagado</span>
+                            <span>${bs(totalHistorial)}</span>
+                        </div>
+                    </div>
+                ` : `
+                    <div style="font-size:13px;color:var(--text-soft);padding:12px;background:var(--gantt-bg);border-radius:4px;margin-bottom:12px;text-align:center;">
+                        No hay pagos registrados para este trabajo.
+                    </div>
+                `}
+
+                <!-- Barra de progreso -->
+                <div style="margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-soft);margin-bottom:4px;">
+                        <span>Progreso de pago</span>
+                        <span>${Math.round((Number(pago.montoPagado||0) / Number(pago.monto)) * 100)}%</span>
+                    </div>
+                    <div style="height:8px;background:var(--gantt-bg);border-radius:4px;overflow:hidden;">
+                        <div style="height:100%;border-radius:4px;background:${(Number(pago.montoPagado||0) / Number(pago.monto)) >= 0.8 ? 'var(--success)' : 'var(--accent)'};width:${Math.min(100, (Number(pago.montoPagado||0) / Number(pago.monto)) * 100)}%;transition:width 0.5s ease;"></div>
+                    </div>
+                </div>
+
+                <!-- Acciones rápidas -->
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${!esCompletamentePagado ? `
+                        <button class="btn btn-sm btn-success" onclick="openRegisterPagoModalFromDetalle('${pago.id}')">
+                            ${ICONS.plus} Registrar pago
+                        </button>
+                    ` : `
+                        <span style="font-size:13px;color:var(--success);font-weight:600;">✅ Completamente pagado</span>
+                    `}
+                    ${cot ? `
+                        <button class="btn btn-sm btn-ghost" onclick="S.view='cotizaciones';render();setTimeout(() => {
+                            document.querySelector('[data-edit-cot=\\"${cot.id}\\"]')?.click();
+                        }, 100);">
+                            Ver cotización
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ---- FUNCIÓN PARA ALTERNAR DETALLE DE PAGO ----
+function togglePagoDetalle(pagoId) {
+    if (S.expandedPagoId === pagoId) {
+        S.expandedPagoId = null;
+    } else {
+        S.expandedPagoId = pagoId;
+    }
+    render();
+}
+
+// ---- FUNCIÓN PARA REGISTRAR PAGO DESDE EL DETALLE ----
+function openRegisterPagoModalFromDetalle(pagoId) {
+    const pago = S.pagos.find(p => p.id === pagoId);
+    if (!pago) {
+        toast('⚠️ No se encontró el pago.');
+        return;
+    }
+    // Reutilizar el modal existente de registro de pago
+    openRegisterPagoModal(pago);
+}
+
+// ---- FUNCIÓN PARA EXPORTAR DEUDA INDIVIDUAL ----
+function exportDebtIndividual(pagoId) {
+    const pago = S.pagos.find(p => p.id === pagoId);
+    if (!pago) {
+        toast('⚠️ No se encontró el pago.');
+        return;
+    }
+    const saldo = Number(pago.monto) - Number(pago.montoPagado || 0);
+    if (saldo <= 0.01) {
+        toast('⚠️ Esta deuda ya está completamente pagada.');
+        return;
+    }
+    // Exportar una sola deuda
+    exportDebtsWithColumns([pagoId], Object.keys(DEBT_COLUMNS));
 }
 // ---- CLIENTES ----
 function viewClientes() {
