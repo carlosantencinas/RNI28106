@@ -32,5 +32,8 @@ function render() {
         case 'config': main.innerHTML = viewConfig(); break;
     }
 
-    bindAppEvents();
+    // bindAppEvents se define en app.js, asegurarse que esté disponible
+    if (typeof bindAppEvents === 'function') {
+        bindAppEvents();
+    }
 }
