@@ -2,6 +2,161 @@
 // VIEWS - Todas las vistas
 // ============================================================
 
+// ---- FUNCIÓN PARA RENDERIZAR GANTT (extraída de viewExperiencia) ----
+function renderGantt() {
+    const now = new Date();
+    const ganttYears = S.ganttYears || 10;
+    const startDate = new Date(now);
+    startDate.setFullYear(now.getFullYear() - ganttYears);
+
+    const expFiltrada = S.experiencia.filter(e => new Date(e.desde + 'T00:00:00') >= startDate).sort((a, b) => (a.desde || '').localeCompare(b.desde || ''));
+    const formacionFiltrada = S.formacion.filter(f => new Date(f.desde + 'T00:00:00') >= startDate).sort((a, b) => (a.desde || '').localeCompare(b.desde || ''));
+    const cursosFiltrados = S.cursos.filter(c => new Date(c.desde + 'T00:00:00') >= startDate).sort((a, b) => (a.desde || '').localeCompare(b.desde || ''));
+
+    let minDate = startDate;
+    let maxDate = now;
+    const allItems = [...expFiltrada, ...formacionFiltrada, ...cursosFiltrados];
+    if (allItems.length) {
+        const first = new Date(allItems[0].desde + 'T00:00:00');
+        const last = new Date(allItems[allItems.length - 1].hasta + 'T00:00:00');
+        if (first < minDate) minDate = first;
+        if (last > maxDate) maxDate = last;
+    }
+    const rangeMs = Math.max(1, maxDate.getTime() - minDate.getTime());
+
+    if (!allItems.length) {
+        return '<p style="color:var(--text-soft);font-size:13px;">No hay elementos en el rango seleccionado.</p>';
+    }
+
+    let html = `
+        <div class="gantt-legend">
+            <span><span class="dot experiencia"></span> Proyectos completados</span>
+            <span><span class="dot experiencia-active"></span> Proyectos en curso</span>
+            <span><span class="dot experiencia-en-curso"></span> Proyectos "En curso"</span>
+            ${S.ganttShowEducacion ? `<span><span class="dot educacion"></span> Formación</span>` : ''}
+            ${S.ganttShowCursos ? `<span><span class="dot curso"></span> Cursos</span>` : ''}
+            <span style="margin-left:auto;font-size:11px;color:var(--text-soft);">${allItems.length} elementos mostrados</span>
+        </div>
+        <div class="gantt-container">
+    `;
+
+    // Experiencia
+    expFiltrada.forEach(e => {
+        const desde = new Date(e.desde + 'T00:00:00');
+        const hasta = e.enCurso ? new Date() : new Date(e.hasta + 'T00:00:00');
+        const startPct = Math.max(0, ((desde.getTime() - minDate.getTime()) / rangeMs) * 100);
+        const widthPct = Math.max(2, ((hasta.getTime() - desde.getTime()) / rangeMs) * 100);
+        const isActive = hasta >= now;
+        const isEnCurso = e.enCurso === true;
+        const dias = e.enCurso ? 'En curso' : diffDays(e.desde, e.hasta) + 'd';
+        html += `<div class="gantt-row">
+            <div class="gantt-label">
+                ${esc(e.objeto.slice(0, 30))}${e.objeto.length>30?'…':''}
+                <span class="gantt-sub">${esc(e.entidad)} · ${esc(e.cargo)}</span>
+            </div>
+            <div class="gantt-track">
+                <div class="gantt-bar experiencia ${isEnCurso ? 'en-curso' : (isActive ? 'active' : '')}" style="left:${startPct}%;width:${Math.min(widthPct, 100)}%;">
+                    ${fmtDateShort(e.desde)} ${isEnCurso ? '→ En curso' : '— ' + fmtDateShort(e.hasta)}
+                </div>
+            </div>
+            <div class="gantt-duration">${dias}</div>
+        </div>`;
+    });
+
+    // Formación
+    if (S.ganttShowEducacion) {
+        formacionFiltrada.forEach(f => {
+            const desde = new Date(f.desde + 'T00:00:00');
+            const hasta = new Date(f.hasta + 'T00:00:00');
+            const startPct = Math.max(0, ((desde.getTime() - minDate.getTime()) / rangeMs) * 100);
+            const widthPct = Math.max(2, ((hasta.getTime() - desde.getTime()) / rangeMs) * 100);
+            const dias = diffDays(f.desde, f.hasta);
+            html += `<div class="gantt-row">
+                <div class="gantt-label">
+                    🎓 ${esc(f.grado.slice(0, 25))}${f.grado.length>25?'…':''}
+                    <span class="gantt-sub">${esc(f.institucion)}</span>
+                </div>
+                <div class="gantt-track">
+                    <div class="gantt-bar educacion" style="left:${startPct}%;width:${Math.min(widthPct, 100)}%;">
+                        ${fmtDateShort(f.desde)} — ${fmtDateShort(f.hasta)}
+                    </div>
+                </div>
+                <div class="gantt-duration">${dias}d</div>
+            </div>`;
+        });
+    }
+
+    // Cursos
+    if (S.ganttShowCursos) {
+        cursosFiltrados.forEach(c => {
+            const desde = new Date(c.desde + 'T00:00:00');
+            const hasta = new Date(c.hasta + 'T00:00:00');
+            const startPct = Math.max(0, ((desde.getTime() - minDate.getTime()) / rangeMs) * 100);
+            const widthPct = Math.max(2, ((hasta.getTime() - desde.getTime()) / rangeMs) * 100);
+            const dias = diffDays(c.desde, c.hasta);
+            html += `<div class="gantt-row">
+                <div class="gantt-label">
+                    📚 ${esc(c.curso.slice(0, 25))}${c.curso.length>25?'…':''}
+                    <span class="gantt-sub">${esc(c.institucion)} · ${c.horas}h</span>
+                </div>
+                <div class="gantt-track">
+                    <div class="gantt-bar curso" style="left:${startPct}%;width:${Math.min(widthPct, 100)}%;">
+                        ${fmtDateShort(c.desde)} — ${fmtDateShort(c.hasta)}
+                    </div>
+                </div>
+                <div class="gantt-duration">${dias}d</div>
+            </div>`;
+        });
+    }
+
+    html += `</div>`;
+    return html;
+}
+
+// ---- FUNCIÓN PARA RENDERIZAR TABLA DE EXPERIENCIA (extraída de viewExperiencia) ----
+function renderExperienciaTabla() {
+    const rows = applyExpFiltersAndSort(S.experiencia || []);
+    
+    if (!rows.length) {
+        return `<div class="empty">${ICONS.empty}<div>Sin proyectos que coincidan con los filtros.</div></div>`;
+    }
+
+    let html = `<div class="table-wrap"><table>
+        <thead>
+            <tr>
+                <th onclick="toggleExpSort('entidad')" class="${S.expSort.column === 'entidad' ? 'active' : ''}">Entidad <span class="sort-icon">${S.expSort.column === 'entidad' ? (S.expSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                <th onclick="toggleExpSort('objeto')" class="${S.expSort.column === 'objeto' ? 'active' : ''}">Objeto <span class="sort-icon">${S.expSort.column === 'objeto' ? (S.expSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                <th onclick="toggleExpSort('monto')" class="${S.expSort.column === 'monto' ? 'active' : ''}" class="tright">Monto <span class="sort-icon">${S.expSort.column === 'monto' ? (S.expSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                <th onclick="toggleExpSort('cargo')" class="${S.expSort.column === 'cargo' ? 'active' : ''}">Cargo <span class="sort-icon">${S.expSort.column === 'cargo' ? (S.expSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                <th onclick="toggleExpSort('desde')" class="${S.expSort.column === 'desde' ? 'active' : ''}">Desde <span class="sort-icon">${S.expSort.column === 'desde' ? (S.expSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                <th onclick="toggleExpSort('hasta')" class="${S.expSort.column === 'hasta' ? 'active' : ''}">Hasta <span class="sort-icon">${S.expSort.column === 'hasta' ? (S.expSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows.map(e => `
+                <tr>
+                    <td style="font-weight:500;">${esc(e.entidad)}</td>
+                    <td style="word-wrap:break-word;white-space:normal;">${esc(e.objeto)}</td>
+                    <td class="tright tnum">${bs(e.monto)}</td>
+                    <td style="font-size:12px;">${esc(e.cargo)}</td>
+                    <td class="tnum" style="white-space:nowrap;">${fmtDate(e.desde)}</td>
+                    <td class="tnum" style="white-space:nowrap;">${e.enCurso ? 'En curso' : fmtDate(e.hasta)}</td>
+                    <td><span class="stamp ${e.enCurso ? 'en-curso' : (e.certificado ? 'certificado' : 'pendiente')}">${e.enCurso ? 'En curso' : (e.certificado ? 'Certificado' : 'Sin certificado')}</span></td>
+                    <td>
+                        <div class="rowactions">
+                            <button class="iconbtn" title="Editar" data-edit-exp="${e.id}">${ICONS.edit}</button>
+                            <button class="iconbtn" title="Eliminar" data-del-exp="${e.id}">${ICONS.trash}</button>
+                        </div>
+                    </td>
+                </tr>`).join('')}
+        </tbody>
+    </table></div>`;
+    
+    return html;
+}
+
 // ---- DASHBOARD ----
 function viewDashboard() {
     const cots = S.cotizaciones;
@@ -453,7 +608,7 @@ function viewExperiencia() {
 
     <div class="panel">
         <div class="panel-h">
-            <h3>Lista de proyectos</h3>
+            <h3>Lista de proyectos (${S.experiencia.length} totales)</h3>
         </div>
         <div class="panel-body">
             <div class="filter-bar exp-filter-bar">
