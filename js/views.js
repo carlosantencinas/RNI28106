@@ -599,26 +599,56 @@ function viewPagos() {
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO ----
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
+// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
 function renderPagoDetalle(pago, cot, historialPagos) {
     const saldo = Number(pago.monto) - Number(pago.montoPagado || 0);
     const esCompletamentePagado = saldo <= 0.01;
 
-    // OBTENER TODOS LOS PAGOS ASOCIADOS A ESTA DEUDA
-    // Buscar todos los pagos que tengan la misma cotizacionId o que estén vinculados
+    // ============================================================
+    // IMPORTANTE: OBTENER TODOS LOS PAGOS ASOCIADOS A ESTA DEUDA
+    // ============================================================
     let todosLosPagos = [];
     
+    // ESTRATEGIA 1: Buscar por cotizacionId
     if (pago.cotizacionId) {
-        // Si tiene cotizacionId, buscar todos los pagos con esa cotizacionId
+        // Buscar TODOS los pagos que tengan la misma cotizacionId
+        // Incluyendo el pago principal si tiene un montoPagado > 0
         todosLosPagos = S.pagos.filter(p => 
             p.cotizacionId === pago.cotizacionId && 
             p.id !== pago.id // Excluir el pago principal para no duplicarlo
         );
-    } else {
-        // Si no tiene cotizacionId, buscar por cliente y descripción similar
+    }
+    
+    // ESTRATEGIA 2: Si no hay pagos por cotizacionId, buscar por cliente + descripción
+    if (todosLosPagos.length === 0) {
+        // Buscar pagos que tengan el mismo cliente y descripción similar
+        const descripcionBase = pago.descripcion || '';
         todosLosPagos = S.pagos.filter(p => 
             p.cliente === pago.cliente && 
-            p.descripcion === pago.descripcion &&
-            p.id !== pago.id
+            p.descripcion && p.descripcion.includes(descripcionBase.substring(0, 20)) &&
+            p.id !== pago.id &&
+            Number(p.montoPagado || 0) > 0
+        );
+    }
+    
+    // ESTRATEGIA 3: Buscar pagos que tengan el mismo cliente y proyecto
+    if (todosLosPagos.length === 0 && cot) {
+        const proyecto = cot.proyecto || '';
+        todosLosPagos = S.pagos.filter(p => 
+            p.cliente === pago.cliente && 
+            p.descripcion && p.descripcion.includes(proyecto.substring(0, 20)) &&
+            p.id !== pago.id &&
+            Number(p.montoPagado || 0) > 0
+        );
+    }
+    
+    // ESTRATEGIA 4: Buscar pagos que tengan el mismo monto total
+    if (todosLosPagos.length === 0) {
+        todosLosPagos = S.pagos.filter(p => 
+            Number(p.monto) === Number(pago.monto) &&
+            p.cliente === pago.cliente &&
+            p.id !== pago.id &&
+            Number(p.montoPagado || 0) > 0
         );
     }
 
@@ -631,6 +661,11 @@ function renderPagoDetalle(pago, cot, historialPagos) {
     // Escapar IDs para evitar problemas con comillas
     const pagoId = pago.id;
     const cotId = cot ? cot.id : '';
+
+    // DEBUG: Mostrar en consola para depuración
+    console.log('Pago principal:', pago);
+    console.log('Pagos encontrados en historial:', todosLosPagos);
+    console.log('Total pagado en historial:', totalHistorial);
 
     return `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -674,7 +709,7 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                     
                     ${pago.notas ? `
                         <div><strong>Notas:</strong></div>
-                        <div style="grid-column:span 2;font-size:12px;color:var(--text-soft);padding:4px 8px;background:var(--gantt-bg);border-radius:4px;white-space:pre-wrap;">${esc(pago.notas)}</div>
+                        <div style="grid-column:span 2;font-size:12px;color:var(--text-soft);padding:4px 8px;background:var(--gantt-bg);border-radius:4px;white-space:pre-wrap;max-height:100px;overflow-y:auto;">${esc(pago.notas)}</div>
                     ` : ''}
                 </div>
             </div>
@@ -684,7 +719,7 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                 <div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">💰 Registro de pagos (${todosLosPagos.length})</div>
                 
                 ${todosLosPagos.length > 0 ? `
-                    <div class="payment-history" style="max-height:250px;margin-bottom:12px;">
+                    <div class="payment-history" style="max-height:300px;margin-bottom:12px;overflow-y:auto;">
                         ${todosLosPagos.map(p => `
                             <div class="entry" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
                                 <div style="flex:1;min-width:0;">
@@ -713,6 +748,7 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                 ` : `
                     <div style="font-size:13px;color:var(--text-soft);padding:12px;background:var(--gantt-bg);border-radius:4px;margin-bottom:12px;text-align:center;">
                         No hay pagos registrados para este trabajo.
+                        <br><span style="font-size:11px;">Haz clic en "Registrar pago" para agregar uno.</span>
                     </div>
                 `}
 
@@ -741,6 +777,9 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                             📄 Ver cotización
                         </button>
                     ` : ''}
+                    <button class="btn btn-sm btn-danger" onclick="eliminarPagoPrincipal('${pagoId}')" style="border-color:var(--danger);color:var(--danger);">
+                        🗑️ Eliminar deuda
+                    </button>
                 </div>
             </div>
         </div>
