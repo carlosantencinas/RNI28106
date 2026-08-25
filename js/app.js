@@ -750,3 +750,36 @@ async function eliminarPagoHistorial(pagoId) {
         toast('❌ Error al eliminar el pago.');
     }
 }
+// ---- FUNCIÓN DE DEPURACIÓN PARA VER PAGOS ASOCIADOS ----
+function debugPagosDeuda(pagoId) {
+    const pago = S.pagos.find(p => p.id === pagoId);
+    if (!pago) {
+        console.log('❌ Pago no encontrado');
+        return;
+    }
+    
+    console.log('🔍 === DEBUG PAGOS DEUDA ===');
+    console.log('Pago principal:', pago);
+    console.log('cotizacionId:', pago.cotizacionId);
+    
+    // Buscar todos los pagos con la misma cotizacionId
+    const asociados = S.pagos.filter(p => 
+        p.cotizacionId === pago.cotizacionId && 
+        p.id !== pago.id
+    );
+    console.log('Pagos asociados por cotizacionId:', asociados);
+    
+    // Buscar por cliente
+    const porCliente = S.pagos.filter(p => 
+        p.cliente === pago.cliente && 
+        p.id !== pago.id &&
+        Number(p.montoPagado || 0) > 0
+    );
+    console.log('Pagos por cliente:', porCliente);
+    
+    console.log('Total de pagos en S.pagos:', S.pagos.length);
+    console.log('🔍 === FIN DEBUG ===');
+}
+
+// Exponer función de depuración
+window.debugPagosDeuda = debugPagosDeuda;
