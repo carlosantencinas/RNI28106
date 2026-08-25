@@ -16,6 +16,9 @@ window.clearLicFilters = clearLicFilters;
 window.clearContFilters = clearContFilters;
 window.calcularEdad = calcularEdad;
 window.openColumnSelectorModal = openColumnSelectorModal;
+window.openRegisterPagoModalFromDetalle = openRegisterPagoModalFromDetalle;
+window.togglePagoDetalle = togglePagoDetalle;
+window.exportDebtIndividual = exportDebtIndividual;
 
 // ============================================================
 // BIND APP EVENTS - Manejadores de eventos
