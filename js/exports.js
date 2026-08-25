@@ -594,6 +594,7 @@ function exportContactosExcel() {
 }
 
 // ---- EXPORTAR PDF - COTIZACIONES ----
+// ---- EXPORTAR PDF - COTIZACIONES (CON PLAZO) ----
 function exportPDF(c) {
     if (!c) { toast('No se encontró la cotización.'); return; }
     if (!window.jspdf) { toast('La librería de PDF aún está cargando.'); return; }
@@ -639,15 +640,17 @@ function exportPDF(c) {
     doc.text(c.cliente || '—', 38, y);
     y += 8;
 
+    // TABLA DE ÍTEMS CON PLAZO
     doc.autoTable({
         startY: y,
-        head: [['Nº', 'Actividad', 'P.U. [Bs]', 'Unidad', 'Cant.', 'Total [Bs]']],
+        head: [['Nº', 'Actividad', 'P.U. [Bs]', 'Unidad', 'Cant.', 'Plazo (días)', 'Total [Bs]']],
         body: c.items.map((it, i) => [
             String(i + 1),
             it.actividad || '',
             (Number(it.pu) || 0).toFixed(2),
             it.unidad || '',
             String(it.cantidad || 0),
+            String(it.plazo || 0),
             ((Number(it.pu) || 0) * (Number(it.cantidad) || 0)).toFixed(2)
         ]),
         styles: { fontSize: 8.5, cellPadding: 2.5, valign: 'top', textColor: [30, 36, 41] },
@@ -655,11 +658,12 @@ function exportPDF(c) {
         alternateRowStyles: { fillColor: [245, 244, 238] },
         columnStyles: {
             0: { cellWidth: 8, halign: 'center' },
-            1: { cellWidth: 90 },
-            2: { cellWidth: 22, halign: 'right' },
-            3: { cellWidth: 28 },
+            1: { cellWidth: 75 },
+            2: { cellWidth: 20, halign: 'right' },
+            3: { cellWidth: 22 },
             4: { cellWidth: 14, halign: 'center' },
-            5: { cellWidth: 22, halign: 'right' }
+            5: { cellWidth: 18, halign: 'center' },
+            6: { cellWidth: 20, halign: 'right' }
         },
         margin: { left: 15, right: 15 }
     });
@@ -667,6 +671,8 @@ function exportPDF(c) {
 
     const subtotal = cotSubtotal(c);
     const total = cotTotal(c);
+    const plazoTotal = c.items ? c.items.reduce((sum, item) => sum + (Number(item.plazo) || 0), 0) : 0;
+
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(60, 66, 71);
@@ -680,12 +686,19 @@ function exportPDF(c) {
     doc.setFontSize(12);
     doc.setTextColor(...primary);
     doc.text(`Monto final [Bs]: ${total.toFixed(2)}`, pageW - 15, y, { align: 'right' });
+    y += 6;
+    
+    // MOSTRAR PLAZO TOTAL
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 36, 41);
+    doc.text(`Plazo total: ${plazoTotal} días`, pageW - 15, y, { align: 'right' });
     y += 10;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(30, 36, 41);
-    doc.text(`Plazo a partir del anticipo: ${c.plazoDias||0} días`, 15, y);
+    doc.text(`Plazo a partir del anticipo: ${plazoTotal} días`, 15, y);
     y += 10;
 
     if (c.entregables) {
@@ -731,7 +744,6 @@ function exportPDF(c) {
     doc.save(`Cotizacion_${safeName}_${c.fecha}.pdf`);
     toast('📄 PDF generado correctamente.');
 }
-
 // ---- EXPORTAR HOJA DE VIDA (EXCEL) ----
 function exportHojaVida() {
     try {
