@@ -17,6 +17,7 @@ function itemRowHtml(it) {
 // MODAL - COTIZACIONES
 // ============================================================
 
+// ---- MODAL COTIZACIONES (CON PLAZO POR ÍTEM) ----
 function openCotModal(cot) {
     const isNew = !cot;
     const c = cot ? JSON.parse(JSON.stringify(cot)) : {
@@ -25,13 +26,19 @@ function openCotModal(cot) {
         proyecto: '',
         cliente: '',
         titulo: '',
-        items: [{ id: uid(), actividad: '', pu: 0, unidad: '', cantidad: 1 }],
+        items: [{ id: uid(), actividad: '', pu: 0, unidad: '', cantidad: 1, plazo: 0 }], // <-- AGREGADO plazo
         descuento: 0,
-        plazoDias: 5,
+        plazoDias: 0, // <-- SE CALCULARÁ AUTOMÁTICAMENTE
         nota: S.config.defaultNota || '',
         entregables: S.config.defaultEntregables || '',
         estado: 'borrador'
     };
+
+    // Calcular plazo total si existe
+    let plazoTotal = 0;
+    if (c.items && c.items.length > 0) {
+        plazoTotal = c.items.reduce((sum, item) => sum + (Number(item.plazo) || 0), 0);
+    }
 
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
@@ -51,26 +58,40 @@ function openCotModal(cot) {
                 <datalist id="dl-proyectos">${[...new Set(S.clientes.flatMap(cl => cl.proyectos))].map(p => `<option value="${attr(p)}">`).join('')}</datalist>
                 <div class="row3">
                     <div class="field"><label>Fecha</label><input type="date" id="f-fecha" value="${attr(c.fecha)}"></div>
-                    <div class="field"><label>Plazo (días)</label><input type="number" id="f-plazo" value="${c.plazoDias||0}"></div>
+                    <div class="field"><label>Plazo total (días)</label>
+                        <input type="number" id="f-plazo-total" value="${plazoTotal}" disabled style="background:#f5f5f5;font-weight:bold;color:var(--primary);">
+                        <div style="font-size:11px;color:var(--text-soft);margin-top:2px;">Se calcula automáticamente sumando los plazos de cada ítem</div>
+                    </div>
                     <div class="field"><label>Estado</label>
                         <select id="f-estado">
                             ${['borrador','enviada','aceptada','rechazada'].map(e => `<option value="${e}" ${c.estado===e?'selected':''}>${e}</option>`).join('')}
                         </select>
                     </div>
                 </div>
+                
                 <label style="display:block;font-family:'JetBrains Mono';font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-soft);margin-bottom:8px;">Ítems</label>
                 <div class="items-block" id="items-block">
-                    ${c.items.map(it => itemRowHtml(it)).join('')}
+                    ${c.items.map(it => itemRowHtmlConPlazo(it)).join('')}
                 </div>
                 <button type="button" class="btn btn-sm btn-ghost" id="btn-add-item" style="margin-bottom:14px;">+ Agregar ítem</button>
+                
                 <div class="row2">
                     <div class="field"><label>Descuento [Bs]</label><input type="number" step="0.01" id="f-descuento" value="${c.descuento||0}"></div>
                     <div class="field"><label>&nbsp;</label><div style="font-size:12.5px;color:var(--text-soft);">Subtotal: <b id="f-subtotal-view">${bs(cotSubtotal(c))}</b></div></div>
                 </div>
+                
                 <div class="field"><label>Entregables</label><textarea id="f-entregables" style="min-height:80px;">${esc(c.entregables||'')}</textarea></div>
                 <div class="field"><label>Nota / alcance</label><textarea id="f-nota">${esc(c.nota||'')}</textarea></div>
+                
                 <div style="border-top:2px solid var(--primary);margin-top:6px;padding-top:12px;">
-                    <div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;color:var(--primary);"><span>Monto final</span><span id="f-total-view">${bs(cotTotal(c))}</span></div>
+                    <div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;color:var(--primary);">
+                        <span>Monto final</span>
+                        <span id="f-total-view">${bs(cotTotal(c))}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-soft);margin-top:4px;">
+                        <span>Plazo total</span>
+                        <span id="f-plazo-final">${plazoTotal} días</span>
+                    </div>
                 </div>
             </div>
             <div class="modal-foot">
@@ -81,24 +102,50 @@ function openCotModal(cot) {
     `;
     document.body.appendChild(overlay);
 
+    // ============================================================
+    // FUNCIONES DE RECÁLCULO
+    // ============================================================
     function recalc() {
         const rows = overlay.querySelectorAll('.item-row');
         let subtotal = 0;
+        let plazoTotal = 0;
+        
         rows.forEach(r => {
             const pu = Number(r.querySelector('.it-pu').value) || 0;
             const cant = Number(r.querySelector('.it-cantidad').value) || 0;
+            const plazo = Number(r.querySelector('.it-plazo').value) || 0;
             subtotal += pu * cant;
+            plazoTotal += plazo;
         });
+        
         const desc = Number(overlay.querySelector('#f-descuento').value) || 0;
         overlay.querySelector('#f-subtotal-view').textContent = bs(subtotal);
         overlay.querySelector('#f-total-view').textContent = bs(subtotal - desc);
+        
+        // Actualizar plazo total
+        overlay.querySelector('#f-plazo-total').value = plazoTotal;
+        overlay.querySelector('#f-plazo-final').textContent = plazoTotal + ' días';
     }
 
+    // ============================================================
+    // EVENTOS
+    // ============================================================
+    
+    // Agregar ítem
     overlay.querySelector('#btn-add-item').onclick = () => {
         const block = overlay.querySelector('#items-block');
-        block.insertAdjacentHTML('beforeend', itemRowHtml({ id: uid(), actividad: '', pu: 0, unidad: '', cantidad: 1 }));
+        block.insertAdjacentHTML('beforeend', itemRowHtmlConPlazo({ 
+            id: uid(), 
+            actividad: '', 
+            pu: 0, 
+            unidad: '', 
+            cantidad: 1, 
+            plazo: 0 
+        }));
+        recalc();
     };
 
+    // Eliminar ítem
     overlay.querySelector('#items-block').addEventListener('click', e => {
         if (e.target.classList.contains('item-remove')) {
             const row = e.target.closest('.item-row');
@@ -109,9 +156,21 @@ function openCotModal(cot) {
         }
     });
 
-    overlay.querySelectorAll('input, textarea, select').forEach(el => el.addEventListener('input', recalc));
+    // Recalcular en cada cambio
+    overlay.querySelectorAll('input, textarea, select').forEach(el => {
+        if (el.id !== 'f-plazo-total' && el.id !== 'f-plazo-final') {
+            el.addEventListener('input', recalc);
+        }
+        if (el.id === 'f-plazo-total') {
+            // No permitir edición manual
+            el.addEventListener('keydown', e => e.preventDefault());
+        }
+    });
     overlay.querySelector('#f-descuento').addEventListener('input', recalc);
 
+    // ============================================================
+    // CERRAR MODAL
+    // ============================================================
     const closeModal = () => {
         if (overlay && overlay.parentNode) overlay.remove();
     };
@@ -120,16 +179,24 @@ function openCotModal(cot) {
     overlay.querySelector('#m-cancel').onclick = closeModal;
     overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
 
+    // ============================================================
+    // GUARDAR
+    // ============================================================
     overlay.querySelector('#m-save').onclick = async () => {
         const items = [...overlay.querySelectorAll('.item-row')].map(r => ({
             id: r.dataset.item,
             actividad: r.querySelector('.it-actividad').value.trim(),
             pu: Number(r.querySelector('.it-pu').value) || 0,
             unidad: r.querySelector('.it-unidad').value.trim(),
-            cantidad: Number(r.querySelector('.it-cantidad').value) || 0
+            cantidad: Number(r.querySelector('.it-cantidad').value) || 0,
+            plazo: Number(r.querySelector('.it-plazo').value) || 0 // <-- GUARDAR PLAZO
         }));
+        
         const titulo = overlay.querySelector('#f-titulo').value.trim();
         if (!titulo) { toast('Ponle un título a la cotización.'); return; }
+
+        // Calcular plazo total
+        const plazoTotal = items.reduce((sum, item) => sum + (Number(item.plazo) || 0), 0);
 
         const nuevo = {
             id: c.id,
@@ -139,7 +206,7 @@ function openCotModal(cot) {
             titulo,
             items,
             descuento: Number(overlay.querySelector('#f-descuento').value) || 0,
-            plazoDias: Number(overlay.querySelector('#f-plazo').value) || 0,
+            plazoDias: plazoTotal, // <-- GUARDAR PLAZO TOTAL
             entregables: overlay.querySelector('#f-entregables').value.trim(),
             nota: overlay.querySelector('#f-nota').value.trim(),
             estado: overlay.querySelector('#f-estado').value
@@ -165,7 +232,6 @@ function openCotModal(cot) {
         toast(isNew ? '✅ Cotización creada.' : '✅ Cotización actualizada.');
     };
 }
-
 // ============================================================
 // MODAL - PAGOS
 // ============================================================
