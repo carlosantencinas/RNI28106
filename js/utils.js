@@ -130,7 +130,17 @@ function pagoEstado(p) {
     if (Number(p.montoPagado || 0) > 0) return 'parcial';
     return 'pendiente';
 }
-
+// ---- ITEM ROW CON PLAZO (para cotizaciones) ----
+function itemRowHtmlConPlazo(it) {
+    return `<div class="item-row" data-item="${it.id}" style="display:grid;grid-template-columns:1fr 80px 70px 50px 70px 30px;gap:8px;align-items:start;margin-bottom:8px;">
+        <textarea class="it-actividad" placeholder="Descripción" style="min-height:36px;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-family:'Inter',sans-serif;">${esc(it.actividad||'')}</textarea>
+        <input class="it-pu" type="number" step="0.01" placeholder="P.U." value="${it.pu||0}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">
+        <input class="it-unidad" placeholder="Unidad" value="${attr(it.unidad||'')}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">
+        <input class="it-cantidad" type="number" step="1" placeholder="Cant." value="${it.cantidad||1}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">
+        <input class="it-plazo" type="number" step="1" placeholder="Plazo" value="${it.plazo||0}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;width:60px;">
+        <button type="button" class="item-remove" style="background:none;border:none;color:#C0392B;cursor:pointer;font-size:18px;padding:2px 4px;">×</button>
+    </div>`;
+}
 // ============================================================
 // ICONS
 // ============================================================
