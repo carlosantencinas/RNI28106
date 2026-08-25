@@ -678,3 +678,75 @@ if (savedConfig) {
 // Inicializar eventos de login y Firebase
 initLoginEvents();
 initFirebase();
+// ---- FUNCIÓN PARA ELIMINAR UN PAGO DEL HISTORIAL (CORREGIDA) ----
+async function eliminarPagoHistorial(pagoId) {
+    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar este pago registrado?\n\nEsta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        // Buscar el pago a eliminar
+        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
+        if (pagoIndex === -1) {
+            toast('⚠️ No se encontró el pago.');
+            return;
+        }
+        
+        const pagoEliminado = S.pagos[pagoIndex];
+        const montoEliminado = Number(pagoEliminado.montoPagado || 0);
+        
+        // Buscar el pago principal (el que tiene el monto total)
+        let pagoPrincipal = null;
+        let pagoPrincipalIndex = -1;
+        
+        if (pagoEliminado.cotizacionId) {
+            // Buscar el pago principal con la misma cotizacionId
+            pagoPrincipalIndex = S.pagos.findIndex(p => 
+                p.cotizacionId === pagoEliminado.cotizacionId && 
+                p.id !== pagoId &&
+                Number(p.monto) > 0
+            );
+            if (pagoPrincipalIndex !== -1) {
+                pagoPrincipal = S.pagos[pagoPrincipalIndex];
+            }
+        }
+        
+        // Eliminar el pago del historial
+        S.pagos.splice(pagoIndex, 1);
+        
+        // Si existe un pago principal, actualizar su montoPagado restando el monto eliminado
+        if (pagoPrincipal && pagoPrincipalIndex !== -1) {
+            const nuevoMontoPagado = Math.max(0, (Number(pagoPrincipal.montoPagado || 0) - montoEliminado));
+            pagoPrincipal.montoPagado = nuevoMontoPagado;
+            
+            // Actualizar notas para reflejar la eliminación
+            const notaEliminacion = `❌ Pago de ${bs(montoEliminado)} eliminado (${fmtDate(new Date().toISOString())})`;
+            pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaEliminacion : notaEliminacion;
+            
+            S.pagos[pagoPrincipalIndex] = pagoPrincipal;
+        }
+        
+        // Guardar cambios
+        await savePagos(S.user?.uid);
+        
+        // Mantener el detalle expandido si estaba abierto
+        if (S.expandedPagoId === pagoEliminado.cotizacionId || S.expandedPagoId === pagoId) {
+            // Buscar el pago principal para mantenerlo expandido
+            const principal = S.pagos.find(p => 
+                p.cotizacionId === pagoEliminado.cotizacionId && 
+                Number(p.monto) > 0
+            );
+            if (principal) {
+                S.expandedPagoId = principal.id;
+            } else {
+                S.expandedPagoId = null;
+            }
+        }
+        
+        toast('✅ Pago eliminado correctamente.');
+        render();
+    } catch (error) {
+        console.error('Error al eliminar pago:', error);
+        toast('❌ Error al eliminar el pago.');
+    }
+}
