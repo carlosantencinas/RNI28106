@@ -2,8 +2,34 @@
 // EXPORTACIONES - WORD, EXCEL, PDF
 // ============================================================
 
-// ---- EXPORTAR DEUDAS (PDF) con proyecto ----
-function exportDebts(selectedIds) {
+// ---- CONFIGURACIÓN DE COLUMNAS PARA EXPORTAR ----
+const DEBT_COLUMNS = {
+    fecha: { label: 'Fecha', default: true },
+    descripcion: { label: 'Descripción', default: true },
+    cliente: { label: 'Cliente', default: true },
+    proyecto: { label: 'Proyecto', default: true },
+    monto: { label: 'Monto', default: true },
+    pagado: { label: 'Pagado', default: true },
+    saldo: { label: 'Saldo', default: true },
+    metodo: { label: 'Método de pago', default: false },
+    comprobante: { label: 'Comprobante', default: false },
+    notas: { label: 'Notas', default: false }
+};
+
+// ---- OBTENER COLUMNAS SELECCIONADAS ----
+function getSelectedDebtColumns() {
+    const selected = [];
+    for (const [key, col] of Object.entries(DEBT_COLUMNS)) {
+        const checkbox = document.getElementById(`col-${key}`);
+        if (checkbox && checkbox.checked) {
+            selected.push(key);
+        }
+    }
+    return selected;
+}
+
+// ---- EXPORTAR DEUDAS CON SELECCIÓN DE COLUMNAS ----
+function exportDebtsWithColumns(selectedIds, columns) {
     if (!selectedIds || selectedIds.length === 0) {
         toast('⚠️ No hay deudas seleccionadas.');
         return;
@@ -29,6 +55,40 @@ function exportDebts(selectedIds) {
         toast('La librería de PDF aún está cargando.');
         return;
     }
+
+    // Definir cabeceras según columnas seleccionadas
+    const columnMap = {
+        fecha: { header: 'Fecha', get: p => fmtDate(p.fecha) },
+        descripcion: { header: 'Descripción', get: p => p.descripcion || '—' },
+        cliente: { header: 'Cliente', get: p => p.cliente || '—' },
+        proyecto: { header: 'Proyecto', get: p => {
+            if (p.cotizacionId) {
+                const cot = S.cotizaciones.find(c => c.id === p.cotizacionId);
+                return cot ? cot.proyecto || '—' : '—';
+            }
+            return '—';
+        }},
+        monto: { header: 'Monto', get: p => bs(p.monto) },
+        pagado: { header: 'Pagado', get: p => bs(p.montoPagado || 0) },
+        saldo: { header: 'Saldo', get: p => bs(Number(p.monto) - Number(p.montoPagado || 0)) },
+        metodo: { header: 'Método de pago', get: p => p.metodoPago ? metodoPagoLabel(p.metodoPago) : '—' },
+        comprobante: { header: 'Comprobante', get: p => p.comprobante || '—' },
+        notas: { header: 'Notas', get: p => p.notas || '—' }
+    };
+
+    const selectedColumns = columns || getSelectedDebtColumns();
+    if (selectedColumns.length === 0) {
+        toast('⚠️ Selecciona al menos una columna para exportar.');
+        return;
+    }
+
+    // Generar cabeceras
+    const headers = selectedColumns.map(col => columnMap[col].header);
+    
+    // Generar datos
+    const tableData = debtsWithBalance.map(p => {
+        return selectedColumns.map(col => columnMap[col].get(p));
+    });
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -71,45 +131,36 @@ function exportDebts(selectedIds) {
     doc.text(`Número de registros: ${debtsWithBalance.length}`, 15, y);
     y += 10;
 
-    // Tabla de deudas con Proyecto
-    const tableData = debtsWithBalance.map(p => {
-        const saldo = Number(p.monto) - Number(p.montoPagado || 0);
-        let proyecto = '—';
-        if (p.cotizacionId) {
-            const cot = S.cotizaciones.find(c => c.id === p.cotizacionId);
-            if (cot) proyecto = cot.proyecto || '—';
-        }
-        return [
-            fmtDate(p.fecha),
-            p.descripcion || '—',
-            p.cliente || '—',
-            proyecto,
-            bs(p.monto),
-            bs(p.montoPagado || 0),
-            bs(saldo),
-            p.metodoPago ? metodoPagoLabel(p.metodoPago) : '—',
-            p.comprobante || '—'
-        ];
-    });
+    // Definir anchos de columnas según cantidad
+    const colCount = headers.length;
+    let colWidths = {};
+    if (colCount <= 5) {
+        // Columnas más anchas
+        const width = Math.floor(170 / colCount);
+        headers.forEach((h, i) => {
+            colWidths[i] = width;
+        });
+    } else {
+        // Columnas más estrechas
+        const width = Math.floor(160 / colCount);
+        headers.forEach((h, i) => {
+            colWidths[i] = Math.max(15, width);
+        });
+    }
 
     doc.autoTable({
         startY: y,
-        head: [['Fecha', 'Descripción', 'Cliente', 'Proyecto', 'Monto', 'Pagado', 'Saldo', 'Método', 'Comprobante']],
+        head: [headers],
         body: tableData,
-        styles: { fontSize: 7.5, cellPadding: 2, valign: 'middle', textColor: [30, 36, 41] },
-        headStyles: { fillColor: primary, textColor: 255, fontStyle: 'bold', fontSize: 8 },
-        alternateRowStyles: { fillColor: [245, 244, 238] },
-        columnStyles: {
-            0: { cellWidth: 18 },
-            1: { cellWidth: 28 },
-            2: { cellWidth: 22 },
-            3: { cellWidth: 22 },
-            4: { cellWidth: 18, halign: 'right' },
-            5: { cellWidth: 18, halign: 'right' },
-            6: { cellWidth: 18, halign: 'right' },
-            7: { cellWidth: 18 },
-            8: { cellWidth: 18 }
+        styles: { 
+            fontSize: Math.min(9, Math.max(6, 10 - Math.floor(colCount / 2))), 
+            cellPadding: 2, 
+            valign: 'middle', 
+            textColor: [30, 36, 41] 
         },
+        headStyles: { fillColor: primary, textColor: 255, fontStyle: 'bold', fontSize: Math.min(10, Math.max(7, 11 - Math.floor(colCount / 2))) },
+        alternateRowStyles: { fillColor: [245, 244, 238] },
+        columnStyles: colWidths,
         margin: { left: 12, right: 12 }
     });
 
@@ -131,6 +182,102 @@ function exportDebts(selectedIds) {
     const fileName = `Reporte_Deudas_${new Date().toISOString().slice(0,10)}.pdf`;
     doc.save(fileName);
     toast(`📄 Reporte de deudas exportado (${debtsWithBalance.length} registros).`);
+}
+
+// ---- VERSIÓN ANTERIOR PARA COMPATIBILIDAD ----
+function exportDebts(selectedIds) {
+    // Usar todas las columnas por defecto
+    const allColumns = Object.keys(DEBT_COLUMNS);
+    exportDebtsWithColumns(selectedIds, allColumns);
+}
+
+// ---- MODAL PARA SELECCIONAR COLUMNAS ----
+function openColumnSelectorModal() {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-h">
+                <h3>📋 Seleccionar columnas a exportar</h3>
+                <button class="close" id="m-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px;color:var(--text-soft);margin-bottom:16px;">
+                    Selecciona las columnas que deseas incluir en el reporte de deudas.
+                </p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    ${Object.entries(DEBT_COLUMNS).map(([key, col]) => `
+                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface);">
+                            <input type="checkbox" id="col-${key}" ${col.default ? 'checked' : ''}>
+                            ${col.label}
+                        </label>
+                    `).join('')}
+                </div>
+                <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-sm btn-ghost" id="select-all-columns">Seleccionar todas</button>
+                    <button class="btn btn-sm btn-ghost" id="deselect-all-columns">Deseleccionar todas</button>
+                    <button class="btn btn-sm btn-ghost" id="reset-default-columns">Restaurar predeterminadas</button>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
+                <button class="btn btn-success" id="m-export">📤 Exportar con columnas seleccionadas</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+    };
+
+    overlay.querySelector('#m-close').onclick = closeModal;
+    overlay.querySelector('#m-cancel').onclick = closeModal;
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
+
+    // Select all
+    overlay.querySelector('#select-all-columns').onclick = () => {
+        overlay.querySelectorAll('[id^="col-"]').forEach(cb => cb.checked = true);
+    };
+
+    // Deselect all
+    overlay.querySelector('#deselect-all-columns').onclick = () => {
+        overlay.querySelectorAll('[id^="col-"]').forEach(cb => cb.checked = false);
+    };
+
+    // Reset to defaults
+    overlay.querySelector('#reset-default-columns').onclick = () => {
+        Object.entries(DEBT_COLUMNS).forEach(([key, col]) => {
+            const cb = overlay.querySelector(`#col-${key}`);
+            if (cb) cb.checked = col.default;
+        });
+    };
+
+    // Export
+    overlay.querySelector('#m-export').onclick = () => {
+        const selectedIds = Array.from(S.selectedDebts);
+        if (selectedIds.length === 0) {
+            toast('⚠️ No hay deudas seleccionadas.');
+            return;
+        }
+        
+        // Obtener columnas seleccionadas
+        const selectedColumns = [];
+        overlay.querySelectorAll('[id^="col-"]').forEach(cb => {
+            if (cb.checked) {
+                const key = cb.id.replace('col-', '');
+                selectedColumns.push(key);
+            }
+        });
+
+        if (selectedColumns.length === 0) {
+            toast('⚠️ Selecciona al menos una columna para exportar.');
+            return;
+        }
+
+        closeModal();
+        exportDebtsWithColumns(selectedIds, selectedColumns);
+    };
 }
 
 // ---- EXPORTAR A WORD (A-5, A-7, PARTICIPACIÓN) ----
