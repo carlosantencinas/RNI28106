@@ -450,6 +450,7 @@ function viewCotizaciones() {
 }
 
 // ---- PAGOS POR COBRAR (con checkboxes y proyecto) ----
+// ---- PAGOS POR COBRAR (con checkboxes, proyecto y selector de columnas) ----
 function viewPagos() {
     const rows = applyPagoFiltersAndSort(S.pagos || []);
     const estados = ['pendiente', 'parcial', 'pagado'];
@@ -459,6 +460,12 @@ function viewPagos() {
     const allVisibleSelected = rows.length > 0 && rows.every(p => S.selectedDebts.has(p.id));
     const selectedCount = rows.filter(p => S.selectedDebts.has(p.id)).length;
 
+    // Contar deudas con saldo pendiente entre los seleccionados
+    const validSelected = rows
+        .filter(p => S.selectedDebts.has(p.id))
+        .filter(p => (Number(p.monto) - Number(p.montoPagado || 0)) > 0.01);
+    const validCount = validSelected.length;
+
     let tableHtml = '';
     if (rows.length) {
         tableHtml = `
@@ -467,10 +474,13 @@ function viewPagos() {
                     <input type="checkbox" id="select-all-debts" ${allVisibleSelected ? 'checked' : ''}>
                     <label for="select-all-debts">Seleccionar todos (${rows.length} registros)</label>
                 </div>
-                <div style="display:flex;gap:8px;align-items:center;">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <span style="font-size:12px;color:var(--text-soft);">${selectedCount} seleccionados</span>
-                    <button class="btn btn-sm btn-success" id="btn-export-debts" ${selectedCount === 0 ? 'disabled' : ''}>
-                        📤 Exportar deuda (${selectedCount})
+                    <button class="btn btn-sm btn-success" id="btn-export-debts" ${validCount === 0 ? 'disabled' : ''}>
+                        📤 Exportar todas
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="btn-select-columns" ${validCount === 0 ? 'disabled' : ''}>
+                        ⚙️ Elegir columnas
                     </button>
                     <button class="btn btn-sm btn-ghost" id="btn-clear-selection">Limpiar selección</button>
                 </div>
@@ -557,7 +567,6 @@ function viewPagos() {
         </div>
     </div>`;
 }
-
 // ---- CLIENTES ----
 function viewClientes() {
     const list = [...S.clientes].sort((a, b) => a.nombre.localeCompare(b.nombre));
