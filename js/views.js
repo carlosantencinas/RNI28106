@@ -597,12 +597,17 @@ function viewPagos() {
 }
 
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO ----
+// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
 function renderPagoDetalle(pago, cot, historialPagos) {
     const saldo = Number(pago.monto) - Number(pago.montoPagado || 0);
     const esCompletamentePagado = saldo <= 0.01;
 
     // Calcular total pagado en historial
     const totalHistorial = historialPagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
+
+    // Escapar IDs para evitar problemas con comillas
+    const pagoId = pago.id;
+    const cotId = cot ? cot.id : '';
 
     return `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -656,18 +661,28 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                 <div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">💰 Registro de pagos</div>
                 
                 ${historialPagos.length > 0 ? `
-                    <div class="payment-history" style="max-height:180px;margin-bottom:12px;">
+                    <div class="payment-history" style="max-height:250px;margin-bottom:12px;">
                         ${historialPagos.map(p => `
-                            <div class="entry">
-                                <span>
-                                    ${fmtDate(p.fecha)} - ${esc(p.descripcion)}
-                                    ${p.metodoPago ? `<span class="metodo-pago-badge ${p.metodoPago}">${metodoPagoLabel(p.metodoPago)}</span>` : ''}
-                                    ${p.comprobante ? `<span class="comprobante-num">#${esc(p.comprobante)}</span>` : ''}
-                                </span>
-                                <span style="font-weight:500;">${bs(p.montoPagado)}</span>
+                            <div class="entry" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
+                                <div style="flex:1;">
+                                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                        <span style="font-weight:500;">${fmtDate(p.fecha)}</span>
+                                        <span style="font-size:12px;">- ${esc(p.descripcion)}</span>
+                                        ${p.metodoPago ? `<span class="metodo-pago-badge ${p.metodoPago}" style="font-size:9px;">${metodoPagoLabel(p.metodoPago)}</span>` : ''}
+                                        ${p.comprobante ? `<span class="comprobante-num" style="font-size:9px;">#${esc(p.comprobante)}</span>` : ''}
+                                    </div>
+                                    ${p.notas ? `<div style="font-size:11px;color:var(--text-soft);margin-top:2px;">${esc(p.notas)}</div>` : ''}
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span style="font-weight:600;font-size:13px;">${bs(p.montoPagado)}</span>
+                                    <button class="iconbtn" style="padding:2px 5px;font-size:11px;color:var(--danger);border-color:var(--danger);" 
+                                        onclick="eliminarPagoHistorial('${p.id}')" title="Eliminar este pago">
+                                        ✕
+                                    </button>
+                                </div>
                             </div>
                         `).join('')}
-                        <div class="entry" style="font-weight:600;border-top:2px solid var(--border);padding-top:6px;margin-top:4px;">
+                        <div class="entry" style="font-weight:600;border-top:2px solid var(--border);padding-top:6px;margin-top:4px;display:flex;justify-content:space-between;">
                             <span>Total pagado</span>
                             <span>${bs(totalHistorial)}</span>
                         </div>
@@ -692,23 +707,127 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                 <!-- Acciones rápidas -->
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     ${!esCompletamentePagado ? `
-                        <button class="btn btn-sm btn-success" onclick="openRegisterPagoModalFromDetalle('${pago.id}')">
+                        <button class="btn btn-sm btn-success" onclick="openRegisterPagoModalFromDetalle('${pagoId}')">
                             ${ICONS.plus} Registrar pago
                         </button>
                     ` : `
                         <span style="font-size:13px;color:var(--success);font-weight:600;">✅ Completamente pagado</span>
                     `}
                     ${cot ? `
-                        <button class="btn btn-sm btn-ghost" onclick="S.view='cotizaciones';render();setTimeout(() => {
-                            document.querySelector('[data-edit-cot=\\"${cot.id}\\"]')?.click();
-                        }, 100);">
-                            Ver cotización
+                        <button class="btn btn-sm btn-ghost" onclick="abrirCotizacion('${cotId}')">
+                            📄 Ver cotización
                         </button>
                     ` : ''}
+                    <button class="btn btn-sm btn-danger" onclick="eliminarPagoPrincipal('${pagoId}')" style="border-color:var(--danger);color:var(--danger);">
+                        🗑️ Eliminar deuda
+                    </button>
                 </div>
             </div>
         </div>
     `;
+}
+
+// ---- FUNCIÓN PARA ABRIR COTIZACIÓN (CORREGIDA) ----
+function abrirCotizacion(cotId) {
+    if (!cotId) {
+        toast('⚠️ No hay cotización asociada.');
+        return;
+    }
+    // Cambiar a la vista de cotizaciones y abrir el modal de edición
+    S.view = 'cotizaciones';
+    render();
+    // Usar setTimeout para asegurar que el DOM esté renderizado
+    setTimeout(() => {
+        const editBtn = document.querySelector(`[data-edit-cot="${cotId}"]`);
+        if (editBtn) {
+            editBtn.click();
+        } else {
+            toast('⚠️ No se encontró la cotización para editar.');
+        }
+    }, 200);
+}
+
+// ---- FUNCIÓN PARA ELIMINAR UN PAGO DEL HISTORIAL ----
+async function eliminarPagoHistorial(pagoId) {
+    if (!confirm('¿Estás seguro de que deseas eliminar este pago registrado?')) {
+        return;
+    }
+    
+    try {
+        // Buscar el pago en el historial
+        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
+        if (pagoIndex === -1) {
+            toast('⚠️ No se encontró el pago.');
+            return;
+        }
+        
+        // Obtener el pago para saber a qué deuda principal pertenece
+        const pagoEliminado = S.pagos[pagoIndex];
+        
+        // Buscar la deuda principal (el pago que tiene el monto total)
+        // Esto asume que el pago principal es el que tiene cotizacionId y es el primero
+        const pagoPrincipal = S.pagos.find(p => 
+            p.cotizacionId === pagoEliminado.cotizacionId && 
+            p.id !== pagoEliminado.id &&
+            p.monto > 0
+        );
+        
+        // Eliminar el pago del historial
+        S.pagos.splice(pagoIndex, 1);
+        await savePagos(S.user?.uid);
+        
+        // Si existe un pago principal, actualizar su montoPagado restando el monto eliminado
+        if (pagoPrincipal) {
+            const montoEliminado = Number(pagoEliminado.montoPagado || 0);
+            pagoPrincipal.montoPagado = Math.max(0, (Number(pagoPrincipal.montoPagado || 0) - montoEliminado));
+            
+            // Actualizar el pago principal
+            const principalIndex = S.pagos.findIndex(p => p.id === pagoPrincipal.id);
+            if (principalIndex !== -1) {
+                S.pagos[principalIndex] = pagoPrincipal;
+                await savePagos(S.user?.uid);
+            }
+        }
+        
+        toast('✅ Pago eliminado correctamente.');
+        render();
+    } catch (error) {
+        console.error('Error al eliminar pago:', error);
+        toast('❌ Error al eliminar el pago.');
+    }
+}
+
+// ---- FUNCIÓN PARA ELIMINAR LA DEUDA PRINCIPAL ----
+async function eliminarPagoPrincipal(pagoId) {
+    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar esta deuda y todos sus pagos asociados?')) {
+        return;
+    }
+    
+    try {
+        // Buscar la deuda principal
+        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
+        if (pagoIndex === -1) {
+            toast('⚠️ No se encontró la deuda.');
+            return;
+        }
+        
+        const pagoEliminado = S.pagos[pagoIndex];
+        
+        // Eliminar todos los pagos asociados a esta deuda (misma cotizacionId)
+        const pagosAsociados = S.pagos.filter(p => p.cotizacionId === pagoEliminado.cotizacionId && p.id !== pagoId);
+        const idsAEliminar = pagosAsociados.map(p => p.id);
+        
+        // Eliminar la deuda principal y sus asociados
+        S.pagos = S.pagos.filter(p => p.id !== pagoId && !idsAEliminar.includes(p.id));
+        await savePagos(S.user?.uid);
+        
+        toast('✅ Deuda y pagos asociados eliminados correctamente.');
+        S.expandedPagoId = null; // Cerrar el detalle expandido
+        render();
+    } catch (error) {
+        console.error('Error al eliminar deuda:', error);
+        toast('❌ Error al eliminar la deuda.');
+    }
 }
 
 // ---- FUNCIÓN PARA ALTERNAR DETALLE DE PAGO ----
