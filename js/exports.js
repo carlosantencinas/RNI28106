@@ -526,4 +526,140 @@ function exportPDF(c) {
     doc.text(`Subtotal [Bs]: ${subtotal.toFixed(2)}`, pageW - 15, y, { align: 'right' });
     y += 6;
     if (Number(c.descuento) > 0) {
-        doc.text(`Descuento / anticipo [Bs]: ${Number(c.descuento).toFixed
+        doc.text(`Descuento / anticipo [Bs]: ${Number(c.descuento).toFixed(2)}`, pageW - 15, y, { align: 'right' });
+        y += 6;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...primary);
+    doc.text(`Monto final [Bs]: ${total.toFixed(2)}`, pageW - 15, y, { align: 'right' });
+    y += 10;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 36, 41);
+    doc.text(`Plazo a partir del anticipo: ${c.plazoDias||0} días`, 15, y);
+    y += 10;
+
+    if (c.entregables) {
+        if (y > 245) { doc.addPage();
+            y = 20; }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(30, 36, 41);
+        doc.text('Producto a presentar', 15, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(60, 66, 71);
+        const delLines = doc.splitTextToSize(c.entregables, pageW - 30);
+        doc.text(delLines, 15, y);
+        y += delLines.length * 4 + 6;
+    }
+
+    if (c.nota) {
+        if (y > 255) { doc.addPage();
+            y = 20; }
+        doc.setFontSize(8);
+        doc.setTextColor(100, 105, 110);
+        const noteLines = doc.splitTextToSize(`Nota: ${c.nota}`, pageW - 30);
+        doc.text(noteLines, 15, y);
+        y += noteLines.length * 4 + 10;
+    }
+
+    if (y > 255) { doc.addPage();
+        y = 20; }
+    doc.setFontSize(9);
+    doc.setTextColor(30, 36, 41);
+    doc.text(`Fecha: ${fmtDate(c.fecha)}`, 15, y);
+    y += 16;
+    doc.setFont('helvetica', 'bold');
+    doc.text(S.config.nombre || '', 15, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(S.config.rni || '', 15, y);
+
+    const safeName = (c.proyecto || 'cotizacion').replace(/[^a-z0-9]+/gi, '_').slice(0, 40);
+    doc.save(`Cotizacion_${safeName}_${c.fecha}.pdf`);
+    toast('📄 PDF generado correctamente.');
+}
+
+// ---- EXPORTAR HOJA DE VIDA (EXCEL) ----
+function exportHojaVida() {
+    try {
+        const wb = XLSX.utils.book_new();
+
+        const dpData = [
+            ['HOJA DE VIDA ESPECIALISTA HIDRÓLOGO'],
+            [''],
+            ['1. DATOS GENERALES'],
+            [''],
+            ['Nombre Completo', S.datosPersonales.nombre || ''],
+            ['Cédula de Identidad', S.datosPersonales.ci || ''],
+            ['Lugar de Expedición', S.datosPersonales.lugarExpedicion || ''],
+            ['Fecha de Nacimiento', S.datosPersonales.fechaNacimiento ? fmtDateExcel(S.datosPersonales.fechaNacimiento) : ''],
+            ['Edad', calcularEdad(S.datosPersonales.fechaNacimiento) || ''],
+            ['Nacionalidad', S.datosPersonales.nacionalidad || ''],
+            ['Profesión', S.datosPersonales.profesion || ''],
+            ['Número de Registro Profesional', S.datosPersonales.registroProfesional || '']
+        ];
+        const ws1 = XLSX.utils.aoa_to_sheet(dpData);
+        ws1['!cols'] = [{ wch: 32 }, { wch: 45 }];
+        XLSX.utils.book_append_sheet(wb, ws1, 'Datos Generales');
+
+        const faData = [
+            ['2. FORMACIÓN ACADÉMICA'],
+            [''],
+            ['Universidad / Institución', 'Desde', 'Hasta', 'Grado Académico']
+        ];
+        S.formacion.forEach(f => {
+            faData.push([f.institucion, fmtDateExcel(f.desde), fmtDateExcel(f.hasta), f.grado]);
+        });
+        const ws2 = XLSX.utils.aoa_to_sheet(faData);
+        ws2['!cols'] = [{ wch: 50 }, { wch: 16 }, { wch: 16 }, { wch: 55 }];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Formación Académica');
+
+        const ceData = [
+            ['3. CURSOS DE ESPECIALIZACIÓN'],
+            [''],
+            ['Universidad / Institución', 'Desde', 'Hasta', 'Nombre del Curso', 'Duración (Horas)']
+        ];
+        S.cursos.forEach(c => {
+            ceData.push([c.institucion, fmtDateExcel(c.desde), fmtDateExcel(c.hasta), c.curso, c.horas]);
+        });
+        const ws3 = XLSX.utils.aoa_to_sheet(ceData);
+        ws3['!cols'] = [{ wch: 48 }, { wch: 16 }, { wch: 16 }, { wch: 55 }, { wch: 18 }];
+        XLSX.utils.book_append_sheet(wb, ws3, 'Cursos Especialización');
+
+        const expData = [
+            ['4. EXPERIENCIA GENERAL'],
+            [''],
+            ['N°', 'Entidad / Empresa', 'Objeto', 'Monto (Bs)', 'Cargo', 'Desde', 'Hasta', 'Estado', 'Certificado']
+        ];
+        S.experiencia.sort((a, b) => (a.desde || '').localeCompare(b.desde || ''));
+        S.experiencia.forEach((e, i) => {
+            expData.push([
+                i + 1,
+                e.entidad,
+                e.objeto,
+                Number(e.monto).toFixed(2),
+                e.cargo,
+                fmtDateExcel(e.desde),
+                e.enCurso ? 'En curso' : fmtDateExcel(e.hasta),
+                e.enCurso ? 'En curso' : (e.certificado ? 'Certificado' : 'Sin certificado'),
+                e.certificado ? 'Sí' : 'No'
+            ]);
+        });
+        const ws4 = XLSX.utils.aoa_to_sheet(expData);
+        ws4['!cols'] = [{ wch: 6 }, { wch: 34 }, { wch: 55 }, { wch: 18 }, { wch: 34 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(wb, ws4, 'Experiencia');
+
+        const fileName = `Hoja_Vida_Ing_Antequera_${new Date().toISOString().slice(0,10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        toast('✅ Hoja de vida exportada a Excel con todas las secciones.');
+    } catch (e) {
+        console.error(e);
+        toast('Error al exportar: ' + e.message);
+    }
+}
