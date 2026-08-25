@@ -1,8 +1,7 @@
 // ============================================================
 // STATE GLOBAL
 // ============================================================
-// En state.js, agregar:
-expandedPagoId: null,    // ID del pago expandido en la vista de pagos
+
 const S = {
     view: 'dashboard',
     cotizaciones: [],
@@ -41,5 +40,7 @@ const S = {
     licFilters: { convocatoria: '', proyecto: '', estado: '', entidad: '' },
     licSort: { column: null, direction: 'asc' },
     contFilters: { nombre: '', empresa: '', cargo: '' },
-    contSort: { column: null, direction: 'asc' }
+    contSort: { column: null, direction: 'asc' },
+    // EXPANDIDO PARA DETALLE DE PAGOS
+    expandedPagoId: null
 };
