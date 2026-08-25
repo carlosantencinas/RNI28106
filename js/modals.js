@@ -307,6 +307,7 @@ function openPagoModal(pago) {
 // REGISTRAR PAGO PARCIAL
 // ============================================================
 
+// ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
 function openRegisterPagoModal(pago) {
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
@@ -367,6 +368,11 @@ function openRegisterPagoModal(pago) {
                     <label>Notas adicionales</label>
                     <textarea id="rp-notas" rows="2" placeholder="Detalles del pago..."></textarea>
                 </div>
+                ${pago.notas ? `
+                    <div style="font-size:12px;color:var(--text-soft);padding:6px 10px;background:var(--gantt-bg);border-radius:4px;margin-top:8px;">
+                        <strong>Notas existentes:</strong> ${esc(pago.notas)}
+                    </div>
+                ` : ''}
             </div>
             <div class="modal-foot">
                 <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
@@ -399,6 +405,11 @@ function openRegisterPagoModal(pago) {
         const metodo = overlay.querySelector('#rp-metodo').value;
         const comprobante = overlay.querySelector('#rp-comprobante').value.trim();
 
+        if (nuevoPagado <= 0) {
+            toast('⚠️ Ingresa un monto válido.');
+            return;
+        }
+
         if (nuevoPagado > total) {
             toast('⚠️ El monto pagado no puede ser mayor al monto total.');
             return;
@@ -409,22 +420,42 @@ function openRegisterPagoModal(pago) {
             return;
         }
 
-        const pagoActualizado = { ...pago };
-        pagoActualizado.montoPagado = nuevoPagado;
-        pagoActualizado.fechaCompromiso = overlay.querySelector('#rp-fecha-pago').value;
-        pagoActualizado.metodoPago = metodo || pago.metodoPago || '';
-        pagoActualizado.comprobante = comprobante || pago.comprobante || '';
-        pagoActualizado.notas = (pagoActualizado.notas || '') + '\n' +
-            `💰 Pago de ${bs(nuevoPagado - (pago.montoPagado || 0))} registrado el ${fmtDate(overlay.querySelector('#rp-fecha-pago').value)}` +
-            (metodo ? ` (${metodoPagoLabel(metodo)})` : '') +
-            (comprobante ? ` #${comprobante}` : '');
-        if (overlay.querySelector('#rp-notas').value.trim()) {
-            pagoActualizado.notas += '\n' + overlay.querySelector('#rp-notas').value.trim();
+        // Crear un nuevo registro de pago (no modificar el existente)
+        const nuevoPago = {
+            id: uid(),
+            cotizacionId: pago.cotizacionId || '',
+            cliente: pago.cliente,
+            descripcion: overlay.querySelector('#rp-desc').value || 'Pago parcial',
+            monto: total,
+            montoPagado: nuevoPagado,
+            fecha: overlay.querySelector('#rp-fecha-pago').value,
+            fechaCompromiso: overlay.querySelector('#rp-fecha-pago').value,
+            notas: overlay.querySelector('#rp-notas').value.trim() || '',
+            metodoPago: metodo,
+            comprobante: comprobante
+        };
+
+        // Agregar el nuevo pago al array
+        S.pagos.push(nuevoPago);
+        
+        // Actualizar el montoPagado del pago principal
+        const pagoPrincipal = S.pagos.find(p => p.id === pago.id);
+        if (pagoPrincipal) {
+            pagoPrincipal.montoPagado = nuevoPagado;
+            // Agregar nota sobre el pago
+            const notaPago = `💰 Pago de ${bs(nuevoPagado)} registrado el ${fmtDate(nuevoPago.fecha)}${metodo ? ` (${metodoPagoLabel(metodo)})` : ''}${comprobante ? ` #${comprobante}` : ''}`;
+            pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaPago : notaPago;
+            
+            // Actualizar el pago principal en el array
+            const index = S.pagos.findIndex(p => p.id === pagoPrincipal.id);
+            if (index !== -1) {
+                S.pagos[index] = pagoPrincipal;
+            }
         }
 
-        S.pagos = S.pagos.map(x => x.id === pagoActualizado.id ? pagoActualizado : x);
         await savePagos(S.user?.uid);
         closeModal();
+        S.expandedPagoId = pago.id; // Mantener expandido el detalle
         render();
         toast('✅ Pago registrado exitosamente.');
     };
