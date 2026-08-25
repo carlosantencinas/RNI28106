@@ -16,20 +16,10 @@ window.clearLicFilters = clearLicFilters;
 window.clearContFilters = clearContFilters;
 window.calcularEdad = calcularEdad;
 
-// Cargar configuración guardada
-const savedConfig = getSavedFirebaseConfig();
-if (savedConfig) {
-    document.getElementById('firebase-config-input').value = JSON.stringify(savedConfig, null, 2);
-    updateFirebaseStatus(true, '✅ Configuración guardada');
-}
-
-// Inicializar
-initLoginEvents();
-initFirebase();
-
 // ============================================================
 // LOGIN EVENTS
 // ============================================================
+
 function initLoginEvents() {
     document.getElementById('login-form').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -46,8 +36,12 @@ function initLoginEvents() {
         const btn = document.getElementById('btn-login');
         btn.disabled = true;
         btn.textContent = 'Iniciando sesión...';
-        try { await login(email, password); } finally { btn.disabled = false;
-            btn.textContent = 'Iniciar sesión'; }
+        try { 
+            await login(email, password); 
+        } finally { 
+            btn.disabled = false;
+            btn.textContent = 'Iniciar sesión'; 
+        }
     });
 
     document.getElementById('register-form').addEventListener('submit', async function(e) {
@@ -58,13 +52,23 @@ function initLoginEvents() {
         }
         const email = document.getElementById('register-email').value.trim();
         const password = document.getElementById('register-password').value;
-        if (!email || !password) { showLoginError('Completa todos los campos.'); return; }
-        if (password.length < 6) { showLoginError('La contraseña debe tener al menos 6 caracteres.'); return; }
+        if (!email || !password) { 
+            showLoginError('Completa todos los campos.'); 
+            return; 
+        }
+        if (password.length < 6) { 
+            showLoginError('La contraseña debe tener al menos 6 caracteres.'); 
+            return; 
+        }
         const btn = document.getElementById('btn-register');
         btn.disabled = true;
         btn.textContent = 'Creando cuenta...';
-        try { await register(email, password); } finally { btn.disabled = false;
-            btn.textContent = 'Crear cuenta'; }
+        try { 
+            await register(email, password); 
+        } finally { 
+            btn.disabled = false;
+            btn.textContent = 'Crear cuenta'; 
+        }
     });
 
     document.getElementById('reset-form').addEventListener('submit', async function(e) {
@@ -74,32 +78,43 @@ function initLoginEvents() {
             return;
         }
         const email = document.getElementById('reset-email').value.trim();
-        if (!email) { showLoginError('Ingresa tu correo electrónico.'); return; }
+        if (!email) { 
+            showLoginError('Ingresa tu correo electrónico.'); 
+            return; 
+        }
         const btn = document.getElementById('btn-reset');
         btn.disabled = true;
         btn.textContent = 'Enviando...';
-        try { await resetPassword(email); } finally { btn.disabled = false;
-            btn.textContent = 'Enviar correo de recuperación'; }
+        try { 
+            await resetPassword(email); 
+        } finally { 
+            btn.disabled = false;
+            btn.textContent = 'Enviar correo de recuperación'; 
+        }
     });
 
+    // Navegación entre formularios de login
     document.getElementById('goto-register').onclick = () => {
         document.getElementById('login-form').style.display = 'none';
         document.getElementById('register-form').style.display = 'block';
         document.getElementById('reset-form').style.display = 'none';
         hideLoginError();
     };
+    
     document.getElementById('goto-login').onclick = () => {
         document.getElementById('login-form').style.display = 'block';
         document.getElementById('register-form').style.display = 'none';
         document.getElementById('reset-form').style.display = 'none';
         hideLoginError();
     };
+    
     document.getElementById('goto-login-reset').onclick = () => {
         document.getElementById('login-form').style.display = 'block';
         document.getElementById('register-form').style.display = 'none';
         document.getElementById('reset-form').style.display = 'none';
         hideLoginError();
     };
+    
     document.getElementById('goto-reset').onclick = () => {
         document.getElementById('login-form').style.display = 'none';
         document.getElementById('register-form').style.display = 'none';
@@ -107,6 +122,7 @@ function initLoginEvents() {
         hideLoginError();
     };
 
+    // Botones de Firebase
     document.getElementById('btn-connect-firebase').onclick = () => {
         const input = document.getElementById('firebase-config-input');
         try {
@@ -123,3 +139,21 @@ function initLoginEvents() {
         }
     };
 }
+
+// ============================================================
+// INICIALIZACIÓN
+// ============================================================
+
+// Cargar configuración guardada
+const savedConfig = getSavedFirebaseConfig();
+if (savedConfig) {
+    const input = document.getElementById('firebase-config-input');
+    if (input) {
+        input.value = JSON.stringify(savedConfig, null, 2);
+    }
+    updateFirebaseStatus(true, '✅ Configuración guardada');
+}
+
+// Inicializar eventos de login y Firebase
+initLoginEvents();
+initFirebase();
