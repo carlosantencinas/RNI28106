@@ -389,6 +389,7 @@ function viewDashboard() {
 }
 
 // ---- COTIZACIONES ----
+// ---- COTIZACIONES (CON PLAZO) ----
 function viewCotizaciones() {
     const rows = applyCotFiltersAndSort(S.cotizaciones || []);
     const estados = ['borrador', 'enviada', 'aceptada', 'rechazada'];
@@ -420,17 +421,23 @@ function viewCotizaciones() {
                         <th onclick="toggleCotSort('titulo')" class="${S.cotSort.column === 'titulo' ? 'active' : ''}">Título <span class="sort-icon">${S.cotSort.column === 'titulo' ? (S.cotSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
                         <th onclick="toggleCotSort('cliente')" class="${S.cotSort.column === 'cliente' ? 'active' : ''}">Cliente <span class="sort-icon">${S.cotSort.column === 'cliente' ? (S.cotSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
                         <th onclick="toggleCotSort('total')" class="${S.cotSort.column === 'total' ? 'active' : ''}" class="tright">Total <span class="sort-icon">${S.cotSort.column === 'total' ? (S.cotSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="toggleCotSort('plazoDias')" class="${S.cotSort.column === 'plazoDias' ? 'active' : ''}" style="text-align:center;">Plazo <span class="sort-icon">${S.cotSort.column === 'plazoDias' ? (S.cotSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
                         <th onclick="toggleCotSort('estado')" class="${S.cotSort.column === 'estado' ? 'active' : ''}">Estado <span class="sort-icon">${S.cotSort.column === 'estado' ? (S.cotSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${rows.map(c => `
-                        <tr>
+                    ${rows.map(c => {
+                        const pagosRel = S.pagos.filter(p => p.cotizacionId === c.id);
+                        const totalPagado = pagosRel.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
+                        // Calcular plazo total desde items
+                        const plazoTotal = c.items ? c.items.reduce((sum, item) => sum + (Number(item.plazo) || 0), 0) : 0;
+                        return `<tr>
                             <td class="tnum" style="white-space:nowrap;">${fmtDate(c.fecha)}</td>
                             <td><div style="font-weight:600;font-size:13px;">${esc(c.titulo)}</div><div style="font-size:11.5px;color:var(--text-soft);">${esc(c.proyecto)}</div></td>
                             <td>${esc(c.cliente)}</td>
                             <td class="tright tnum" style="font-weight:600;">${bs(cotTotal(c))}</td>
+                            <td style="text-align:center;font-size:12px;">${plazoTotal > 0 ? plazoTotal + ' días' : '—'}</td>
                             <td><span class="stamp ${c.estado}">${c.estado}</span></td>
                             <td>
                                 <div class="rowactions">
@@ -441,14 +448,13 @@ function viewCotizaciones() {
                                     ${c.estado === 'aceptada' ? `<button class="iconbtn" title="Registrar pago" onclick="openPagoFromCotizacion('${c.id}')">💰</button>` : ''}
                                 </div>
                             </td>
-                        </tr>
-                    `).join('')}
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table></div>` : `<div class="empty">${ICONS.empty}<div>No hay cotizaciones que coincidan con los filtros.</div></div>`}
         </div>
     </div>`;
 }
-
 // ---- PAGOS POR COBRAR (con checkboxes y proyecto) ----
 // ---- PAGOS POR COBRAR (con checkboxes, proyecto y selector de columnas) ----
 // ---- PAGOS POR COBRAR (con sub-pestaña de detalle y pagos parciales) ----
