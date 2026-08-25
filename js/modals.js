@@ -308,7 +308,14 @@ function openPagoModal(pago) {
 // ============================================================
 
 // ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
+// ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
 function openRegisterPagoModal(pago) {
+    // Verificar que el pago existe
+    if (!pago) {
+        toast('⚠️ No se encontró el pago.');
+        return;
+    }
+
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
     overlay.innerHTML = `
@@ -369,7 +376,7 @@ function openRegisterPagoModal(pago) {
                     <textarea id="rp-notas" rows="2" placeholder="Detalles del pago..."></textarea>
                 </div>
                 ${pago.notas ? `
-                    <div style="font-size:12px;color:var(--text-soft);padding:6px 10px;background:var(--gantt-bg);border-radius:4px;margin-top:8px;">
+                    <div style="font-size:12px;color:var(--text-soft);padding:6px 10px;background:var(--gantt-bg);border-radius:4px;margin-top:8px;max-height:80px;overflow-y:auto;white-space:pre-wrap;">
                         <strong>Notas existentes:</strong> ${esc(pago.notas)}
                     </div>
                 ` : ''}
@@ -404,6 +411,8 @@ function openRegisterPagoModal(pago) {
         const total = Number(pago.monto);
         const metodo = overlay.querySelector('#rp-metodo').value;
         const comprobante = overlay.querySelector('#rp-comprobante').value.trim();
+        const fechaPago = overlay.querySelector('#rp-fecha-pago').value;
+        const notasAdicionales = overlay.querySelector('#rp-notas').value.trim();
 
         if (nuevoPagado <= 0) {
             toast('⚠️ Ingresa un monto válido.');
@@ -420,37 +429,35 @@ function openRegisterPagoModal(pago) {
             return;
         }
 
-        // Crear un nuevo registro de pago (no modificar el existente)
+        // Crear un nuevo registro de pago (independiente)
         const nuevoPago = {
             id: uid(),
             cotizacionId: pago.cotizacionId || '',
             cliente: pago.cliente,
-            descripcion: overlay.querySelector('#rp-desc').value || 'Pago parcial',
+            descripcion: `Pago parcial - ${pago.descripcion || 'Deuda'}`,
             monto: total,
             montoPagado: nuevoPagado,
-            fecha: overlay.querySelector('#rp-fecha-pago').value,
-            fechaCompromiso: overlay.querySelector('#rp-fecha-pago').value,
-            notas: overlay.querySelector('#rp-notas').value.trim() || '',
-            metodoPago: metodo,
-            comprobante: comprobante
+            fecha: fechaPago || new Date().toISOString().slice(0, 10),
+            fechaCompromiso: fechaPago || new Date().toISOString().slice(0, 10),
+            notas: notasAdicionales || '',
+            metodoPago: metodo || '',
+            comprobante: comprobante || ''
         };
 
         // Agregar el nuevo pago al array
         S.pagos.push(nuevoPago);
         
         // Actualizar el montoPagado del pago principal
-        const pagoPrincipal = S.pagos.find(p => p.id === pago.id);
-        if (pagoPrincipal) {
+        const pagoPrincipalIndex = S.pagos.findIndex(p => p.id === pago.id);
+        if (pagoPrincipalIndex !== -1) {
+            const pagoPrincipal = S.pagos[pagoPrincipalIndex];
             pagoPrincipal.montoPagado = nuevoPagado;
+            
             // Agregar nota sobre el pago
             const notaPago = `💰 Pago de ${bs(nuevoPagado)} registrado el ${fmtDate(nuevoPago.fecha)}${metodo ? ` (${metodoPagoLabel(metodo)})` : ''}${comprobante ? ` #${comprobante}` : ''}`;
             pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaPago : notaPago;
             
-            // Actualizar el pago principal en el array
-            const index = S.pagos.findIndex(p => p.id === pagoPrincipal.id);
-            if (index !== -1) {
-                S.pagos[index] = pagoPrincipal;
-            }
+            S.pagos[pagoPrincipalIndex] = pagoPrincipal;
         }
 
         await savePagos(S.user?.uid);
