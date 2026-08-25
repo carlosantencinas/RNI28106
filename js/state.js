@@ -1,7 +1,8 @@
 // ============================================================
 // STATE GLOBAL
 // ============================================================
-
+// En state.js, agregar:
+expandedPagoId: null,    // ID del pago expandido en la vista de pagos
 const S = {
     view: 'dashboard',
     cotizaciones: [],
