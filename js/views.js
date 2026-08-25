@@ -2,7 +2,7 @@
 // VIEWS - Todas las vistas
 // ============================================================
 
-// ---- FUNCIÓN PARA RENDERIZAR GANTT (extraída de viewExperiencia) ----
+// ---- FUNCIÓN PARA RENDERIZAR GANTT ----
 function renderGantt() {
     const now = new Date();
     const ganttYears = S.ganttYears || 10;
@@ -40,7 +40,6 @@ function renderGantt() {
         <div class="gantt-container">
     `;
 
-    // Experiencia
     expFiltrada.forEach(e => {
         const desde = new Date(e.desde + 'T00:00:00');
         const hasta = e.enCurso ? new Date() : new Date(e.hasta + 'T00:00:00');
@@ -63,7 +62,6 @@ function renderGantt() {
         </div>`;
     });
 
-    // Formación
     if (S.ganttShowEducacion) {
         formacionFiltrada.forEach(f => {
             const desde = new Date(f.desde + 'T00:00:00');
@@ -86,7 +84,6 @@ function renderGantt() {
         });
     }
 
-    // Cursos
     if (S.ganttShowCursos) {
         cursosFiltrados.forEach(c => {
             const desde = new Date(c.desde + 'T00:00:00');
@@ -113,7 +110,7 @@ function renderGantt() {
     return html;
 }
 
-// ---- FUNCIÓN PARA RENDERIZAR TABLA DE EXPERIENCIA (extraída de viewExperiencia) ----
+// ---- FUNCIÓN PARA RENDERIZAR TABLA DE EXPERIENCIA ----
 function renderExperienciaTabla() {
     const rows = applyExpFiltersAndSort(S.experiencia || []);
     
@@ -157,7 +154,7 @@ function renderExperienciaTabla() {
     return html;
 }
 
-// ---- DASHBOARD ----
+// ---- DASHBOARD (con pagos pendientes mejorados) ----
 function viewDashboard() {
     const cots = S.cotizaciones;
     const pagos = S.pagos;
@@ -213,6 +210,87 @@ function viewDashboard() {
     const evaluacion = lic.filter(l => l.estado === 'evaluacion').length;
     const noAdjudicadas = lic.filter(l => l.estado === 'no-adjudicada').length;
     const totalLicitaciones = lic.length;
+
+    // ---- AVANCE DE PAGOS PENDIENTES (estilo imagen) ----
+    const cotizacionesAceptadas = cots.filter(c => c.estado === 'aceptada');
+    const avancePagos = cotizacionesAceptadas.map(c => {
+        const montoTotal = cotTotal(c);
+        const pagosRelacionados = pagos.filter(p => p.cotizacionId === c.id);
+        const totalPagado = pagosRelacionados.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
+        const porcentaje = montoTotal > 0 ? (totalPagado / montoTotal) * 100 : 0;
+        const saldoPendiente = montoTotal - totalPagado;
+        return {
+            ...c,
+            montoTotal,
+            totalPagado,
+            saldoPendiente,
+            porcentaje: Math.min(100, porcentaje),
+            pagos: pagosRelacionados,
+            estaPagado: saldoPendiente <= 0.01
+        };
+    }).filter(item => !item.estaPagado);
+
+    // ---- FUNCIÓN PARA RENDERIZAR AVANCE DE PAGOS ----
+    function renderAvancePagos() {
+        if (!avancePagos.length) {
+            return `<div class="empty" style="padding:20px;">${ICONS.empty}<div>🎉 No hay cotizaciones aceptadas pendientes de pago.</div></div>`;
+        }
+
+        let html = '';
+        avancePagos.forEach(item => {
+            // Obtener el último pago para mostrar su fecha y descripción
+            const ultimoPago = item.pagos.length > 0 ? item.pagos[item.pagos.length - 1] : null;
+            
+            html += `
+            <div style="margin-bottom:20px;padding:16px 18px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+                    <div style="flex:1;min-width:200px;">
+                        <div style="font-weight:600;font-size:15px;color:var(--primary);">${esc(item.titulo)}</div>
+                        <div style="font-size:12px;color:var(--text-soft);margin-top:2px;">
+                            ${esc(item.cliente)} - ${esc(item.proyecto || '')}
+                        </div>
+                        ${ultimoPago ? `
+                            <div style="font-size:12px;color:var(--text-soft);margin-top:4px;">
+                                ${fmtDate(ultimoPago.fecha)} - ${esc(ultimoPago.descripcion || '')}
+                                ${ultimoPago.metodoPago ? ` · <span class="metodo-pago-badge ${ultimoPago.metodoPago}">${metodoPagoLabel(ultimoPago.metodoPago)}</span>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div style="text-align:right;min-width:120px;">
+                        <div style="font-weight:600;font-size:16px;color:var(--primary);">
+                            ${bs(item.totalPagado)} / ${bs(item.montoTotal)}
+                        </div>
+                        <div style="font-size:12px;color:var(--text-soft);">
+                            Saldo: <strong>${bs(item.saldoPendiente)}</strong>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:10px;height:6px;background:var(--gantt-bg);border-radius:4px;overflow:hidden;">
+                    <div style="height:100%;border-radius:4px;background:${item.porcentaje >= 80 ? 'var(--gantt-active)' : 'var(--accent)'};width:${item.porcentaje}%;transition:width 0.5s ease;"></div>
+                </div>
+                <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-sm btn-success" onclick="openPagoFromCotizacion('${item.id}')">${ICONS.plus} Registrar pago</button>
+                    <button class="btn btn-sm btn-ghost" onclick="S.view='pagos';render();">Ver todos los pagos</button>
+                </div>
+                ${item.pagos.length > 1 ? `
+                    <div class="payment-history" style="margin-top:10px;">
+                        ${item.pagos.slice(0, 3).map(p => `
+                            <div class="entry">
+                                <span>
+                                    ${fmtDate(p.fecha)} - ${esc(p.descripcion)}
+                                    ${p.metodoPago ? `<span class="metodo-pago-badge ${p.metodoPago}">${metodoPagoLabel(p.metodoPago)}</span>` : ''}
+                                    ${p.comprobante ? `<span class="comprobante-num">#${esc(p.comprobante)}</span>` : ''}
+                                </span>
+                                <span style="font-weight:500;">${bs(p.montoPagado)}</span>
+                            </div>
+                        `).join('')}
+                        ${item.pagos.length > 3 ? `<div class="entry" style="color:var(--text-soft);font-style:italic;">...y ${item.pagos.length - 3} pagos más</div>` : ''}
+                    </div>
+                ` : ''}
+            </div>`;
+        });
+        return html;
+    }
 
     return `
     <div class="page-head">
@@ -281,6 +359,16 @@ function viewDashboard() {
     </div>
 
     <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-h">
+            <h3>💰 Avance de pagos pendientes (${avancePagos.length})</h3>
+            <span style="font-size:12px;color:var(--text-soft);">${avancePagos.filter(p => p.porcentaje > 0).length} con pagos parciales</span>
+        </div>
+        <div class="panel-body">
+            ${renderAvancePagos()}
+        </div>
+    </div>
+
+    <div class="panel" style="margin-top:20px;">
         <div class="panel-h"><h3>📋 Últimas cotizaciones aceptadas</h3></div>
         <div class="panel-body">
             ${cots.filter(c => c.estado === 'aceptada').slice(0, 5).map(c => `
@@ -292,27 +380,10 @@ function viewDashboard() {
                     <div style="display:flex;align-items:center;gap:12px;">
                         <span style="font-weight:600;">${bs(cotTotal(c))}</span>
                         <span class="stamp aceptada">Aceptada</span>
+                        <button class="btn btn-sm btn-success" onclick="openPagoFromCotizacion('${c.id}')">💰</button>
                     </div>
                 </div>
             `).join('') || '<div style="color:var(--text-soft);font-size:13px;">No hay cotizaciones aceptadas aún.</div>'}
-        </div>
-    </div>
-
-    <div class="panel">
-        <div class="panel-h"><h3>📋 Últimas licitaciones</h3></div>
-        <div class="panel-body">
-            ${lic.length ? lic.slice(0, 5).map(l => `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <div>
-                        <div style="font-weight:600;">${esc(l.proyecto)}</div>
-                        <div style="font-size:12px;color:var(--text-soft);">${esc(l.entidad)} · ${fmtDate(l.fecha)}</div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span class="stamp ${l.estado}">${l.estado}</span>
-                        ${l.monto ? `<span style="font-size:12px;font-weight:500;">${bs(l.monto)}</span>` : ''}
-                    </div>
-                </div>
-            `).join('') : '<div style="color:var(--text-soft);font-size:13px;">Sin licitaciones registradas aún.</div>'}
         </div>
     </div>`;
 }
@@ -367,6 +438,7 @@ function viewCotizaciones() {
                                     <button class="iconbtn" title="Editar" data-edit-cot="${c.id}">${ICONS.edit}</button>
                                     <button class="iconbtn" title="Duplicar" data-dup-cot="${c.id}">${ICONS.copy}</button>
                                     <button class="iconbtn" title="Eliminar" data-del-cot="${c.id}">${ICONS.trash}</button>
+                                    ${c.estado === 'aceptada' ? `<button class="iconbtn" title="Registrar pago" onclick="openPagoFromCotizacion('${c.id}')">💰</button>` : ''}
                                 </div>
                             </td>
                         </tr>
@@ -377,15 +449,92 @@ function viewCotizaciones() {
     </div>`;
 }
 
-// ---- PAGOS ----
+// ---- PAGOS POR COBRAR (con checkboxes y proyecto) ----
 function viewPagos() {
     const rows = applyPagoFiltersAndSort(S.pagos || []);
     const estados = ['pendiente', 'parcial', 'pagado'];
     const clientesUnicos = [...new Set(S.pagos.map(p => p.cliente).filter(Boolean))].sort();
 
+    // Verificar si todos los registros visibles están seleccionados
+    const allVisibleSelected = rows.length > 0 && rows.every(p => S.selectedDebts.has(p.id));
+    const selectedCount = rows.filter(p => S.selectedDebts.has(p.id)).length;
+
+    let tableHtml = '';
+    if (rows.length) {
+        tableHtml = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                <div class="debt-select-all">
+                    <input type="checkbox" id="select-all-debts" ${allVisibleSelected ? 'checked' : ''}>
+                    <label for="select-all-debts">Seleccionar todos (${rows.length} registros)</label>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span style="font-size:12px;color:var(--text-soft);">${selectedCount} seleccionados</span>
+                    <button class="btn btn-sm btn-success" id="btn-export-debts" ${selectedCount === 0 ? 'disabled' : ''}>
+                        📤 Exportar deuda (${selectedCount})
+                    </button>
+                    <button class="btn btn-sm btn-ghost" id="btn-clear-selection">Limpiar selección</button>
+                </div>
+            </div>
+            <div class="table-wrap"><table>
+                <thead>
+                    <tr>
+                        <th style="width:32px;text-align:center;">✓</th>
+                        <th onclick="togglePagoSort('fecha')" class="${S.pagoSort.column === 'fecha' ? 'active' : ''}">Fecha <span class="sort-icon">${S.pagoSort.column === 'fecha' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="togglePagoSort('descripcion')" class="${S.pagoSort.column === 'descripcion' ? 'active' : ''}">Descripción <span class="sort-icon">${S.pagoSort.column === 'descripcion' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="togglePagoSort('cliente')" class="${S.pagoSort.column === 'cliente' ? 'active' : ''}">Cliente <span class="sort-icon">${S.pagoSort.column === 'cliente' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="togglePagoSort('proyecto')" class="${S.pagoSort.column === 'proyecto' ? 'active' : ''}">Proyecto <span class="sort-icon">${S.pagoSort.column === 'proyecto' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="togglePagoSort('monto')" class="${S.pagoSort.column === 'monto' ? 'active' : ''}" class="tright">Monto <span class="sort-icon">${S.pagoSort.column === 'monto' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="togglePagoSort('montoPagado')" class="${S.pagoSort.column === 'montoPagado' ? 'active' : ''}" class="tright">Pagado <span class="sort-icon">${S.pagoSort.column === 'montoPagado' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="togglePagoSort('saldo')" class="${S.pagoSort.column === 'saldo' ? 'active' : ''}" class="tright">Saldo <span class="sort-icon">${S.pagoSort.column === 'saldo' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="togglePagoSort('estado')" class="${S.pagoSort.column === 'estado' ? 'active' : ''}">Estado <span class="sort-icon">${S.pagoSort.column === 'estado' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th>Método</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map(p => {
+                        const saldo = Number(p.monto) - Number(p.montoPagado || 0);
+                        const isSelected = S.selectedDebts.has(p.id);
+                        // Obtener el proyecto de la cotización relacionada
+                        let proyecto = '—';
+                        if (p.cotizacionId) {
+                            const cot = S.cotizaciones.find(c => c.id === p.cotizacionId);
+                            if (cot) proyecto = cot.proyecto || '—';
+                        }
+                        return `<tr>
+                            <td style="text-align:center;">
+                                <input type="checkbox" class="debt-checkbox" data-id="${p.id}" ${isSelected ? 'checked' : ''}>
+                            </td>
+                            <td class="tnum" style="white-space:nowrap;">${fmtDate(p.fecha)}</td>
+                            <td style="font-weight:500;">${esc(p.descripcion||'—')}</td>
+                            <td>${esc(p.cliente||'—')}</td>
+                            <td>${esc(proyecto)}</td>
+                            <td class="tright tnum">${bs(p.monto)}</td>
+                            <td class="tright tnum">${bs(p.montoPagado||0)}</td>
+                            <td class="tright tnum" style="font-weight:600;">${bs(saldo)}</td>
+                            <td><span class="stamp ${pagoEstado(p)}">${pagoEstado(p)}</span></td>
+                            <td>
+                                ${p.metodoPago ? `<span class="metodo-pago-badge ${p.metodoPago}">${metodoPagoLabel(p.metodoPago)}</span>` : '—'}
+                                ${p.comprobante ? `<div class="comprobante-num" style="margin-top:2px;">#${esc(p.comprobante)}</div>` : ''}
+                            </td>
+                            <td>
+                                <div class="rowactions">
+                                    <button class="iconbtn" title="Registrar pago parcial" data-register-pago="${p.id}">💰</button>
+                                    <button class="iconbtn" title="Editar" data-edit-pago="${p.id}">${ICONS.edit}</button>
+                                    <button class="iconbtn" title="Eliminar" data-del-pago="${p.id}">${ICONS.trash}</button>
+                                </div>
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table></div>`;
+    } else {
+        tableHtml = `<div class="empty">${ICONS.empty}<div>Sin pagos que coincidan con los filtros.</div></div>`;
+    }
+
     return `
     <div class="page-head">
-        <div><p class="eyebrow">Cobros</p><h1>Pagos por cobrar</h1><p>Registro de pagos con fechas, métodos y comprobantes.</p></div>
+        <div><p class="eyebrow">Cobros</p><h1>Pagos por cobrar</h1><p>Registro de pagos con fechas, métodos y comprobantes. Selecciona deudas para exportar.</p></div>
         <div class="page-actions">
             <button class="btn btn-primary" id="btn-new-pago">${ICONS.plus} Nuevo registro</button>
         </div>
@@ -404,43 +553,7 @@ function viewPagos() {
                 <button class="btn btn-sm btn-ghost" id="pago-filter-apply">Aplicar</button>
                 <span class="filter-clear" id="pago-filter-clear">Limpiar</span>
             </div>
-            ${rows.length ? `<div class="table-wrap"><table>
-                <thead>
-                    <tr>
-                        <th onclick="togglePagoSort('fecha')" class="${S.pagoSort.column === 'fecha' ? 'active' : ''}">Fecha <span class="sort-icon">${S.pagoSort.column === 'fecha' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
-                        <th onclick="togglePagoSort('descripcion')" class="${S.pagoSort.column === 'descripcion' ? 'active' : ''}">Descripción <span class="sort-icon">${S.pagoSort.column === 'descripcion' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
-                        <th onclick="togglePagoSort('cliente')" class="${S.pagoSort.column === 'cliente' ? 'active' : ''}">Cliente <span class="sort-icon">${S.pagoSort.column === 'cliente' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
-                        <th onclick="togglePagoSort('monto')" class="${S.pagoSort.column === 'monto' ? 'active' : ''}" class="tright">Monto <span class="sort-icon">${S.pagoSort.column === 'monto' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
-                        <th onclick="togglePagoSort('montoPagado')" class="${S.pagoSort.column === 'montoPagado' ? 'active' : ''}" class="tright">Pagado <span class="sort-icon">${S.pagoSort.column === 'montoPagado' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
-                        <th onclick="togglePagoSort('saldo')" class="${S.pagoSort.column === 'saldo' ? 'active' : ''}" class="tright">Saldo <span class="sort-icon">${S.pagoSort.column === 'saldo' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
-                        <th onclick="togglePagoSort('estado')" class="${S.pagoSort.column === 'estado' ? 'active' : ''}">Estado <span class="sort-icon">${S.pagoSort.column === 'estado' ? (S.pagoSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
-                        <th>Método</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows.map(p => {
-                        const saldo = Number(p.monto) - Number(p.montoPagado || 0);
-                        return `<tr>
-                            <td class="tnum" style="white-space:nowrap;">${fmtDate(p.fecha)}</td>
-                            <td style="font-weight:500;">${esc(p.descripcion||'—')}</td>
-                            <td>${esc(p.cliente||'—')}</td>
-                            <td class="tright tnum">${bs(p.monto)}</td>
-                            <td class="tright tnum">${bs(p.montoPagado||0)}</td>
-                            <td class="tright tnum" style="font-weight:600;">${bs(saldo)}</td>
-                            <td><span class="stamp ${pagoEstado(p)}">${pagoEstado(p)}</span></td>
-                            <td>${p.metodoPago ? `<span class="metodo-pago-badge ${p.metodoPago}">${metodoPagoLabel(p.metodoPago)}</span>` : '—'}</td>
-                            <td>
-                                <div class="rowactions">
-                                    <button class="iconbtn" title="Registrar pago parcial" data-register-pago="${p.id}">💰</button>
-                                    <button class="iconbtn" title="Editar" data-edit-pago="${p.id}">${ICONS.edit}</button>
-                                    <button class="iconbtn" title="Eliminar" data-del-pago="${p.id}">${ICONS.trash}</button>
-                                </div>
-                            </td>
-                        </tr>`;
-                    }).join('')}
-                </tbody>
-            </table></div>` : `<div class="empty">${ICONS.empty}<div>Sin pagos que coincidan con los filtros.</div></div>`}
+            ${tableHtml}
         </div>
     </div>`;
 }
