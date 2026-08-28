@@ -102,11 +102,21 @@ async function saveReferencias(userId) {
     await cloudSet(userId || S.user?.uid, 'referencias', JSON.stringify(S.referencias)); 
 }
 
+async function saveActividades(userId) { 
+    await cloudSet(userId || S.user?.uid, 'actividades', JSON.stringify(S.actividades)); 
+}
+
 // ============================================================
 // FUNCIÓN LOAD DATA
 // ============================================================
 
 async function loadData(userId) {
+    try {
+    const a = await cloudGet(userId, 'actividades');
+    S.actividades = a ? JSON.parse(a) : null;
+} catch (e) { S.actividades = null; }
+
+
     try {
         const c = await cloudGet(userId, 'cotizaciones');
         S.cotizaciones = c ? JSON.parse(c) : null;
@@ -163,6 +173,8 @@ async function loadData(userId) {
     } catch (e) { S.referencias = null; }
 
     // Inicializar arrays vacíos si es necesario
+    // Inicializar:
+if (S.actividades === null) { S.actividades = []; await saveActividades(userId); }
     if (S.cotizaciones === null) { S.cotizaciones = []; await saveCotizaciones(userId); }
     if (S.pagos === null) { S.pagos = []; await savePagos(userId); }
     if (S.clientes === null) { S.clientes = []; await saveClientes(userId); }
