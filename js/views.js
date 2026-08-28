@@ -486,11 +486,10 @@ function viewCotizaciones() {
 }
 
 // ============================================================
-// VIEW - ADMINISTRATIVO (Nuevo apartado)
+// VIEW - ADMINISTRATIVO
 // ============================================================
 
 function viewAdministrativo() {
-    // ========== DATOS FINANCIEROS ==========
     const costoActividades = typeof obtenerCostoTotalCobrado === 'function' ? obtenerCostoTotalCobrado() : 0;
     const detalleCostos = typeof obtenerDetalleCostosPorProyecto === 'function' ? obtenerDetalleCostosPorProyecto() : {};
     
@@ -508,10 +507,7 @@ function viewAdministrativo() {
     const totalCobrado = S.pagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
     const totalFacturado = S.pagos.reduce((s, p) => s + Number(p.monto || 0), 0);
     
-    // ========== DOCUMENTOS ==========
     const docs = S.documentos || [];
-    const tiposDoc = Object.keys(TIPOS_DOCUMENTOS);
-    
     const hoy = new Date().toISOString().slice(0, 10);
     const docsVigentes = S.documentos.filter(d => !d.fechaVencimiento || d.fechaVencimiento >= hoy);
     const docsVencidos = S.documentos.filter(d => d.fechaVencimiento && d.fechaVencimiento < hoy);
@@ -530,7 +526,6 @@ function viewAdministrativo() {
         </div>
     </div>
 
-    <!-- ========== KPI FINANCIEROS ========== -->
     <div class="kpi-grid">
         <div class="kpi danger"><div class="label">💰 Deuda total</div><div class="val">${bs(totalDeuda)}</div><div class="sub">${pagosPendientes.length} pagos pendientes</div></div>
         <div class="kpi success"><div class="label">✅ Cobrado a la fecha</div><div class="val">${bs(totalCobrado)}</div><div class="sub">${S.pagos.length} registros</div></div>
@@ -541,7 +536,6 @@ function viewAdministrativo() {
         <div class="kpi"><div class="label">📄 Documentos</div><div class="val">${S.documentos.length}</div><div class="sub">${docsVigentes.length} vigentes · ${docsVencidos.length} vencidos</div></div>
     </div>
 
-    <!-- ========== SECCIÓN: DOCUMENTOS DE LA EMPRESA ========== -->
     <div class="panel" style="margin-bottom:20px;">
         <div class="panel-h">
             <h3>📄 Documentos de la empresa</h3>
@@ -622,7 +616,6 @@ function viewAdministrativo() {
         </div>
     </div>
 
-    <!-- ========== SECCIÓN: PAGOS POR COBRAR ========== -->
     <div class="panel" style="margin-bottom:20px;">
         <div class="panel-h">
             <h3>💰 Pagos por cobrar (${pagosPendientes.length})</h3>
@@ -679,7 +672,6 @@ function viewAdministrativo() {
         </div>
     </div>
 
-    <!-- ========== SECCIÓN: COSTOS DE ACTIVIDADES ========== -->
     ${costoActividades > 0 ? `
     <div class="panel">
         <div class="panel-h"><h3>📋 Costos de actividades por proyecto</h3></div>
@@ -703,7 +695,6 @@ function viewAdministrativo() {
         </div>
     </div>` : ''}
 
-    <!-- ========== HISTORIAL DE PAGOS CERRADOS ========== -->
     ${pagosCerrados.length > 0 ? `
     <div class="panel" style="margin-top:20px;">
         <div class="panel-h">
@@ -1449,7 +1440,6 @@ function viewConfig() {
 }
 
 // ---- ACTIVIDADES ----
-// ---- ACTIVIDADES ----
 function viewActividades() {
     const rows = applyActFiltersAndSort(S.actividades || []);
     const clientesUnicos = [...new Set(S.actividades.map(a => a.cliente).filter(Boolean))].sort();
@@ -1609,5 +1599,4 @@ window.togglePagoDetalle = togglePagoDetalle;
 window.openRegisterPagoModalFromDetalle = openRegisterPagoModalFromDetalle;
 window.eliminarPagoHistorial = eliminarPagoHistorial;
 window.eliminarPagoPrincipal = eliminarPagoPrincipal;
-window.verActividadDetalle = verActividadDetalle;
 window.viewAdministrativo = viewAdministrativo;
