@@ -388,10 +388,18 @@ function openPagoModal(pago) {
 // ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
 // ---- REGISTRAR PAGO PARCIAL (MEJORADO - CON ASOCIACIÓN CORRECTA) ----
 // ---- REGISTRAR PAGO PARCIAL (CORREGIDO - CREA REGISTROS SEPARADOS) ----
+
+// ---- REGISTRAR PAGO PARCIAL (CORREGIDO - MONTO ADICIONAL) ----
 function openRegisterPagoModal(pago) {
     // Verificar que el pago existe
     if (!pago) {
         toast('⚠️ No se encontró el pago.');
+        return;
+    }
+
+    const saldoActual = Number(pago.monto) - Number(pago.montoPagado || 0);
+    if (saldoActual <= 0) {
+        toast('✅ Esta deuda ya está completamente pagada.');
         return;
     }
 
@@ -418,15 +426,16 @@ function openRegisterPagoModal(pago) {
                         <input id="rp-monto" type="number" value="${pago.monto}" disabled style="background:#f5f5f5;">
                     </div>
                     <div class="field">
-                        <label>Monto pagado actual [Bs]</label>
-                        <input id="rp-pagado-actual" type="number" value="${pago.montoPagado||0}" disabled style="background:#f5f5f5;">
+                        <label>Saldo pendiente [Bs]</label>
+                        <input id="rp-saldo-actual" type="number" value="${saldoActual}" disabled style="background:#f5f5f5;font-weight:bold;color:var(--danger);">
                     </div>
                 </div>
                 <div class="field">
-                    <label>Monto a pagar [Bs]</label>
-                    <input id="rp-pagado-nuevo" type="number" step="0.01" placeholder="Ingresa el monto que se va a pagar" value="">
+                    <label>Monto a pagar AHORA [Bs]</label>
+                    <input id="rp-pagado-nuevo" type="number" step="0.01" placeholder="Ingresa el monto que se va a pagar ahora" value="">
                     <div style="font-size:12px;color:var(--text-soft);margin-top:4px;">
-                        Saldo pendiente: <strong id="rp-saldo">${bs(Number(pago.monto) - Number(pago.montoPagado||0))}</strong>
+                        <strong>Importante:</strong> Este es el monto <u>adicional</u> que estás pagando ahora, no el total acumulado.
+                        <br>Saldo restante después del pago: <strong id="rp-saldo-restante">${bs(saldoActual)}</strong>
                     </div>
                 </div>
                 <div class="row2">
@@ -460,7 +469,10 @@ function openRegisterPagoModal(pago) {
                     </div>
                 ` : ''}
                 <div style="font-size:11px;color:var(--text-soft);margin-top:8px;padding:6px 10px;background:var(--gantt-bg);border-radius:4px;">
-                    <strong>ℹ️ Este pago se registrará como un nuevo registro independiente</strong>
+                    <strong>ℹ️ Resumen:</strong><br>
+                    Monto total: ${bs(pago.monto)}<br>
+                    Ya pagado: ${bs(pago.montoPagado||0)}<br>
+                    <span style="color:var(--danger);">Saldo pendiente: ${bs(saldoActual)}</span>
                 </div>
             </div>
             <div class="modal-foot">
@@ -472,13 +484,13 @@ function openRegisterPagoModal(pago) {
     document.body.appendChild(overlay);
 
     const inputNuevo = overlay.querySelector('#rp-pagado-nuevo');
-    const saldoSpan = overlay.querySelector('#rp-saldo');
+    const saldoRestanteSpan = overlay.querySelector('#rp-saldo-restante');
+    
+    // Actualizar saldo restante en tiempo real
     inputNuevo.addEventListener('input', () => {
-        const total = Number(pago.monto);
-        const pagadoActual = Number(pago.montoPagado || 0);
-        const nuevoPagado = Number(inputNuevo.value) || 0;
-        const saldo = total - (pagadoActual + nuevoPagado);
-        saldoSpan.textContent = bs(Math.max(0, saldo));
+        const montoAPagar = Number(inputNuevo.value) || 0;
+        const saldoRestante = Math.max(0, saldoActual - montoAPagar);
+        saldoRestanteSpan.textContent = bs(saldoRestante);
     });
 
     const closeModal = () => {
@@ -491,8 +503,6 @@ function openRegisterPagoModal(pago) {
 
     overlay.querySelector('#m-save').onclick = async () => {
         const montoAPagar = Number(inputNuevo.value) || 0;
-        const total = Number(pago.monto);
-        const pagadoActual = Number(pago.montoPagado || 0);
         const metodo = overlay.querySelector('#rp-metodo').value;
         const comprobante = overlay.querySelector('#rp-comprobante').value.trim();
         const fechaPago = overlay.querySelector('#rp-fecha-pago').value;
@@ -503,21 +513,21 @@ function openRegisterPagoModal(pago) {
             return;
         }
 
-        if (montoAPagar > (total - pagadoActual)) {
-            toast(`⚠️ El monto no puede ser mayor al saldo pendiente (${bs(total - pagadoActual)}).`);
+        if (montoAPagar > saldoActual) {
+            toast(`⚠️ El monto no puede ser mayor al saldo pendiente (${bs(saldoActual)}).`);
             return;
         }
 
         // ============================================================
-        // CREAR UN NUEVO REGISTRO DE PAGO INDEPENDIENTE
+        // CREAR NUEVO REGISTRO DE PAGO CON EL MONTO ADICIONAL
         // ============================================================
         const nuevoPago = {
             id: uid(),
-            cotizacionId: pago.cotizacionId || '', // Mantener la misma cotizacionId para asociación
+            cotizacionId: pago.cotizacionId || '',
             cliente: pago.cliente,
             descripcion: `Pago parcial - ${pago.descripcion || 'Deuda'}`,
-            monto: total, // El monto total de la deuda (para referencia)
-            montoPagado: montoAPagar, // El monto que se está pagando ahora
+            monto: pago.monto, // Monto total de referencia
+            montoPagado: montoAPagar, // <-- SOLO EL MONTO ADICIONAL
             fecha: fechaPago || new Date().toISOString().slice(0, 10),
             fechaCompromiso: fechaPago || new Date().toISOString().slice(0, 10),
             notas: notasAdicionales || '',
@@ -525,33 +535,33 @@ function openRegisterPagoModal(pago) {
             comprobante: comprobante || ''
         };
 
-        console.log('✅ Nuevo pago registrado:', nuevoPago);
+        console.log('✅ Nuevo pago registrado (monto adicional):', nuevoPago);
 
-        // 1. AGREGAR EL NUEVO PAGO AL ARRAY DE PAGOS
+        // 1. AGREGAR EL NUEVO PAGO AL ARRAY
         S.pagos.push(nuevoPago);
         
-        // 2. ACTUALIZAR EL MONTO PAGADO DEL PAGO PRINCIPAL
+        // 2. ACTUALIZAR EL MONTO PAGADO DEL PAGO PRINCIPAL (ACUMULAR)
         const pagoPrincipalIndex = S.pagos.findIndex(p => p.id === pago.id);
         if (pagoPrincipalIndex !== -1) {
             const pagoPrincipal = S.pagos[pagoPrincipalIndex];
-            const nuevoTotalPagado = pagadoActual + montoAPagar;
+            const nuevoTotalPagado = (Number(pagoPrincipal.montoPagado || 0) + montoAPagar);
             pagoPrincipal.montoPagado = nuevoTotalPagado;
             
             // Agregar nota sobre el pago
-            const notaPago = `💰 Pago de ${bs(montoAPagar)} registrado el ${fmtDate(nuevoPago.fecha)}${metodo ? ` (${metodoPagoLabel(metodo)})` : ''}${comprobante ? ` #${comprobante}` : ''}`;
+            const notaPago = `💰 Pago adicional de ${bs(montoAPagar)} registrado el ${fmtDate(nuevoPago.fecha)}${metodo ? ` (${metodoPagoLabel(metodo)})` : ''}${comprobante ? ` #${comprobante}` : ''}`;
             pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaPago : notaPago;
             
             S.pagos[pagoPrincipalIndex] = pagoPrincipal;
-            console.log('✅ Pago principal actualizado:', pagoPrincipal);
+            console.log('✅ Pago principal actualizado (nuevo total):', pagoPrincipal);
         }
 
         // 3. GUARDAR EN FIREBASE
         await savePagos(S.user?.uid);
         
         closeModal();
-        S.expandedPagoId = pago.id; // Mantener expandido el detalle
+        S.expandedPagoId = pago.id;
         render();
-        toast('✅ Pago registrado exitosamente.');
+        toast(`✅ Pago de ${bs(montoAPagar)} registrado exitosamente. Saldo restante: ${bs(saldoActual - montoAPagar)}`);
     };
 }
 // ============================================================
