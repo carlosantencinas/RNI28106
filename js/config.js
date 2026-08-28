@@ -42,3 +42,18 @@ const TIPOS_ACTIVIDAD = {
     capacitacion: { label: '📚 Capacitación', icon: '📚', color: '#8E44AD' },
     otro: { label: '📌 Otro', icon: '📌', color: '#7F8C8D' }
 };
+// ============================================================
+// CONFIGURACIÓN (ACTUALIZADA)
+// ============================================================
+
+// ... config existente ...
+
+// ========== TIPOS DE DOCUMENTOS ADMINISTRATIVOS ==========
+const TIPOS_DOCUMENTOS = {
+    seprec: { label: '📋 SEPREC', icon: '📋', color: '#2E86C1' },
+    nit: { label: '🏛️ NIT', icon: '🏛️', color: '#27AE60' },
+    rni: { label: '📜 RNI', icon: '📜', color: '#8E44AD' },
+    licencia: { label: '📄 Licencia', icon: '📄', color: '#E67E22' },
+    matricula: { label: '🎓 Matrícula', icon: '🎓', color: '#1A4A5C' },
+    otro: { label: '📁 Otro', icon: '📁', color: '#7F8C8D' }
+};
