@@ -3,46 +3,49 @@
 // ============================================================
 
 // ---- COTIZACIONES ----
-function applyCotFiltersAndSort(data) {
+// ---- DOCUMENTOS ----
+function applyDocFiltersAndSort(data) {
     let result = [...data];
-    if (S.cotFilters.fecha) {
-        result = result.filter(c => c.fecha && c.fecha.includes(S.cotFilters.fecha));
+    if (S.docFilters.tipo) {
+        result = result.filter(d => d.tipo === S.docFilters.tipo);
     }
-    if (S.cotFilters.cliente) {
-        const filter = S.cotFilters.cliente.toLowerCase().trim();
-        result = result.filter(c => c.cliente && c.cliente.toLowerCase().includes(filter));
+    if (S.docFilters.vigente === 'vigente') {
+        const hoy = new Date().toISOString().slice(0, 10);
+        result = result.filter(d => !d.fechaVencimiento || d.fechaVencimiento >= hoy);
+    } else if (S.docFilters.vigente === 'vencido') {
+        const hoy = new Date().toISOString().slice(0, 10);
+        result = result.filter(d => d.fechaVencimiento && d.fechaVencimiento < hoy);
     }
-    if (S.cotFilters.estado) {
-        result = result.filter(c => c.estado === S.cotFilters.estado);
-    }
-    if (S.cotSort.column) {
+    if (S.docSort.column) {
         result.sort((a, b) => {
-            let valA = a[S.cotSort.column] || '';
-            let valB = b[S.cotSort.column] || '';
-            if (valA < valB) return S.cotSort.direction === 'asc' ? -1 : 1;
-            if (valA > valB) return S.cotSort.direction === 'asc' ? 1 : -1;
+            let valA = a[S.docSort.column] || '';
+            let valB = b[S.docSort.column] || '';
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+            if (valA < valB) return S.docSort.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return S.docSort.direction === 'asc' ? 1 : -1;
             return 0;
         });
     }
     return result;
 }
 
-function toggleCotSort(column) {
-    if (S.cotSort.column === column) {
-        S.cotSort.direction = S.cotSort.direction === 'asc' ? 'desc' : 'asc';
+function toggleDocSort(column) {
+    if (S.docSort.column === column) {
+        S.docSort.direction = S.docSort.direction === 'asc' ? 'desc' : 'asc';
     } else {
-        S.cotSort.column = column;
-        S.cotSort.direction = 'asc';
+        S.docSort.column = column;
+        S.docSort.direction = 'asc';
     }
     render();
 }
 
-function clearCotFilters() {
-    S.cotFilters = { fecha: '', cliente: '', estado: '' };
-    S.cotSort = { column: null, direction: 'asc' };
-    document.querySelectorAll('.cot-filter-bar input, .cot-filter-bar select').forEach(el => {
+function clearDocFilters() {
+    S.docFilters = { tipo: '', vigente: '' };
+    S.docSort = { column: null, direction: 'asc' };
+    document.querySelectorAll('.doc-filter-bar input, .doc-filter-bar select').forEach(el => {
         if (el.tagName === 'SELECT') el.value = '';
-        else if (el.type === 'text' || el.type === 'date') el.value = '';
+        else el.value = '';
     });
     render();
 }
