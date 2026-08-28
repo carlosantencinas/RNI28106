@@ -1,5 +1,5 @@
 // ============================================================
-// STATE GLOBAL
+// STATE GLOBAL (ACTUALIZADO)
 // ============================================================
 
 const S = {
@@ -10,6 +10,8 @@ const S = {
     experiencia: [],
     formacion: [],
     cursos: [],
+    // ========== NUEVO: ACTIVIDADES ==========
+    actividades: [],
     datosPersonales: {
         nombre: '',
         ci: '',
@@ -42,5 +44,8 @@ const S = {
     contFilters: { nombre: '', empresa: '', cargo: '' },
     contSort: { column: null, direction: 'asc' },
     // EXPANDIDO PARA DETALLE DE PAGOS
-    expandedPagoId: null
+    expandedPagoId: null,
+    // ========== NUEVO: FILTROS DE ACTIVIDADES ==========
+    actFilters: { tipo: '', fecha: '', cliente: '', proyecto: '' },
+    actSort: { column: null, direction: 'asc' }
 };
