@@ -47,5 +47,18 @@ const S = {
     expandedPagoId: null,
     // ========== NUEVO: FILTROS DE ACTIVIDADES ==========
     actFilters: { tipo: '', fecha: '', cliente: '', proyecto: '' },
+    actSort: { column: null, direction: 'asc' },
+// ============================================================
+// STATE GLOBAL (ACTUALIZADO)
+// ============================================================
+   
+    // ========== NUEVO: DOCUMENTOS ADMINISTRATIVOS ==========
+    documentos: [],
+    docFilters: { tipo: '', vigente: '' },
+    docSort: { column: null, direction: 'asc' },
+    
+    // ========== NUEVO: ACTIVIDADES ==========
+    actividades: [],
+    actFilters: { tipo: '', fecha: '', cliente: '', proyecto: '' },
     actSort: { column: null, direction: 'asc' }
 };
