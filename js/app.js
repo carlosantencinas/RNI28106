@@ -727,27 +727,29 @@ function bindAppEvents() {
         toast('Actividad eliminada.');
     });
     
-    // ========== EVENTO PARA VER DETALLE DE ACTIVIDAD ==========
-    main.querySelectorAll('[data-ver-act]').forEach(b => {
-        b.onclick = (e) => {
-            e.preventDefault();
-            const actId = b.dataset.verAct;
-            if (actId) {
-                if (typeof verActividadDetalle === 'function') {
-                    verActividadDetalle(actId);
-                } else if (typeof window.verActividadDetalle === 'function') {
-                    window.verActividadDetalle(actId);
+// --- ACTIVIDADES: VER DETALLE ---
+main.querySelectorAll('[data-ver-act]').forEach(b => {
+    b.onclick = (e) => {
+        e.preventDefault();
+        const actId = b.dataset.verAct;
+        if (actId) {
+            // Intentar usar la función de modals.js
+            if (typeof verActividadDetalle === 'function') {
+                verActividadDetalle(actId);
+            } else if (typeof window.verActividadDetalle === 'function') {
+                window.verActividadDetalle(actId);
+            } else {
+                // Fallback: mostrar directamente
+                const act = S.actividades.find(a => a.id === actId);
+                if (act) {
+                    mostrarActividadSimple(act);
                 } else {
-                    const act = S.actividades.find(a => a.id === actId);
-                    if (act) {
-                        mostrarActividadSimple(act);
-                    } else {
-                        toast('⚠️ Actividad no encontrada.');
-                    }
+                    toast('⚠️ Actividad no encontrada.');
                 }
             }
-        };
-    });
+        }
+    };
+});
 
     // --- FILTROS ---
     const cotFilterApply = document.getElementById('cot-filter-apply');
