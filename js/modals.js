@@ -1391,3 +1391,142 @@ function exportDebts(selectedIds) {
     doc.save(fileName);
     toast(`📄 Reporte de deudas exportado (${debtsWithBalance.length} registros).`);
 }
+// ---- MODAL ACTIVIDADES ----
+function openActModal(act) {
+    const isNew = !act;
+    const a = act ? { ...act } : {
+        id: uid(),
+        fecha: new Date().toISOString().slice(0, 10),
+        tipo: 'reunion',
+        titulo: '',
+        cliente: '',
+        proyecto: '',
+        ubicacion: '',
+        duracion: '',
+        costo: 0,
+        participantes: '',
+        observaciones: '',
+        resultados: ''
+    };
+
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:640px;">
+            <div class="modal-h">
+                <h3>${isNew ? '📝 Nueva actividad' : '✏️ Editar actividad'}</h3>
+                <button class="close" id="m-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="row2">
+                    <div class="field">
+                        <label>Tipo de actividad</label>
+                        <select id="act-tipo">
+                            ${Object.entries(TIPOS_ACTIVIDAD).map(([key, val]) => 
+                                `<option value="${key}" ${a.tipo === key ? 'selected' : ''}>${val.label}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Fecha</label>
+                        <input type="date" id="act-fecha" value="${a.fecha}">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Título</label>
+                    <input id="act-titulo" value="${attr(a.titulo)}" placeholder="Ej. Reunión con cliente para presentación de avance">
+                </div>
+                <div class="row2">
+                    <div class="field">
+                        <label>Cliente</label>
+                        <input id="act-cliente" list="act-clientes-list" value="${attr(a.cliente)}" placeholder="Cliente o contacto">
+                        <datalist id="act-clientes-list">
+                            ${S.clientes.map(c => `<option value="${attr(c.nombre)}">`).join('')}
+                            ${[...new Set(S.actividades.map(a => a.cliente).filter(Boolean))].map(c => `<option value="${attr(c)}">`).join('')}
+                        </datalist>
+                    </div>
+                    <div class="field">
+                        <label>Proyecto</label>
+                        <input id="act-proyecto" list="act-proyectos-list" value="${attr(a.proyecto)}" placeholder="Proyecto asociado">
+                        <datalist id="act-proyectos-list">
+                            ${[...new Set(S.clientes.flatMap(c => c.proyectos))].filter(Boolean).map(p => `<option value="${attr(p)}">`).join('')}
+                            ${[...new Set(S.actividades.map(a => a.proyecto).filter(Boolean))].map(p => `<option value="${attr(p)}">`).join('')}
+                        </datalist>
+                    </div>
+                </div>
+                <div class="row2">
+                    <div class="field">
+                        <label>Ubicación</label>
+                        <input id="act-ubicacion" value="${attr(a.ubicacion)}" placeholder="Lugar de la actividad">
+                    </div>
+                    <div class="field">
+                        <label>Duración</label>
+                        <input id="act-duracion" value="${attr(a.duracion)}" placeholder="Ej. 2 horas, 3 días">
+                    </div>
+                </div>
+                <div class="row2">
+                    <div class="field">
+                        <label>Costo [Bs]</label>
+                        <input type="number" step="0.01" id="act-costo" value="${a.costo||0}" placeholder="0.00">
+                    </div>
+                    <div class="field">
+                        <label>Participantes</label>
+                        <input id="act-participantes" value="${attr(a.participantes)}" placeholder="Nombres de participantes">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Observaciones</label>
+                    <textarea id="act-observaciones" rows="2">${esc(a.observaciones||'')}</textarea>
+                </div>
+                <div class="field">
+                    <label>Resultados / Acuerdos</label>
+                    <textarea id="act-resultados" rows="2" placeholder="Resultados obtenidos, acuerdos alcanzados...">${esc(a.resultados||'')}</textarea>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
+                <button class="btn btn-primary" id="m-save">${isNew ? 'Guardar' : 'Actualizar'}</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+    };
+
+    overlay.querySelector('#m-close').onclick = closeModal;
+    overlay.querySelector('#m-cancel').onclick = closeModal;
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
+
+    overlay.querySelector('#m-save').onclick = async () => {
+        const nuevo = {
+            id: a.id,
+            fecha: document.getElementById('act-fecha').value,
+            tipo: document.getElementById('act-tipo').value,
+            titulo: document.getElementById('act-titulo').value.trim(),
+            cliente: document.getElementById('act-cliente').value.trim(),
+            proyecto: document.getElementById('act-proyecto').value.trim(),
+            ubicacion: document.getElementById('act-ubicacion').value.trim(),
+            duracion: document.getElementById('act-duracion').value.trim(),
+            costo: Number(document.getElementById('act-costo').value) || 0,
+            participantes: document.getElementById('act-participantes').value.trim(),
+            observaciones: document.getElementById('act-observaciones').value.trim(),
+            resultados: document.getElementById('act-resultados').value.trim()
+        };
+
+        if (!nuevo.titulo) { toast('Ingresa un título para la actividad.'); return; }
+
+        if (isNew) S.actividades.push(nuevo);
+        else S.actividades = S.actividades.map(x => x.id === nuevo.id ? nuevo : x);
+
+        await saveActividades(S.user?.uid);
+        closeModal();
+        render();
+        toast(isNew ? '✅ Actividad registrada.' : '✅ Actividad actualizada.');
+    };
+}
+
+// Exponer función global
+window.verActividadDetalle = verActividadDetalle;
+window.openActModal = openActModal;
