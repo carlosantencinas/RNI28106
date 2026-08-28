@@ -1,5 +1,5 @@
 // ============================================================
-// CONFIGURACIÓN
+// CONFIGURACIÓN (ACTUALIZADA)
 // ============================================================
 
 const LOGO_URL = "https://raw.githubusercontent.com/tu-usuario/tu-repo/main/logo.png";
@@ -19,3 +19,26 @@ const DEFAULT_REFERENCIAS = [
 ];
 
 const LS_PREFIX = 'hidro_data_';
+
+// ---- COLUMNAS PARA EXPORTAR DEUDAS ----
+const DEBT_COLUMNS = {
+    fecha: { label: 'Fecha', default: true },
+    descripcion: { label: 'Descripción', default: true },
+    cliente: { label: 'Cliente', default: true },
+    proyecto: { label: 'Proyecto', default: true },
+    monto: { label: 'Monto', default: true },
+    pagado: { label: 'Pagado', default: true },
+    saldo: { label: 'Saldo', default: true },
+    metodo: { label: 'Método de pago', default: false },
+    comprobante: { label: 'Comprobante', default: false },
+    notas: { label: 'Notas', default: false }
+};
+
+// ========== NUEVO: TIPOS DE ACTIVIDADES ==========
+const TIPOS_ACTIVIDAD = {
+    reunion: { label: '🤝 Reunión', icon: '🤝', color: '#4A90D9' },
+    viaje: { label: '✈️ Viaje', icon: '✈️', color: '#E67E22' },
+    visita_tecnica: { label: '🔧 Visita Técnica', icon: '🔧', color: '#27AE60' },
+    capacitacion: { label: '📚 Capacitación', icon: '📚', color: '#8E44AD' },
+    otro: { label: '📌 Otro', icon: '📌', color: '#7F8C8D' }
+};
