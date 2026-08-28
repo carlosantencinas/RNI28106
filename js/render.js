@@ -7,9 +7,10 @@ function render() {
     const items = [
         ['dashboard', 'Dashboard', 'dash'],
         ['cotizaciones', 'Cotizaciones', 'quote'],
-        ['pagos', 'Pagos por cobrar', 'pay'],
+        ['administrativo', 'Administrativo', 'admin'],
         ['clientes', 'Clientes', 'client'],
         ['experiencia', 'Experiencia', 'exp'],
+        ['actividades', 'Actividades', 'act'],
         ['licitaciones', 'Licitaciones', 'lic'],
         ['contactos', 'Contactos', 'contact'],
         ['config', 'Configuración', 'cfg']
@@ -24,16 +25,20 @@ function render() {
     switch(S.view) {
         case 'dashboard': main.innerHTML = viewDashboard(); break;
         case 'cotizaciones': main.innerHTML = viewCotizaciones(); break;
-        case 'pagos': main.innerHTML = viewPagos(); break;
+        case 'administrativo': main.innerHTML = viewAdministrativo(); break;
         case 'clientes': main.innerHTML = viewClientes(); break;
         case 'experiencia': main.innerHTML = viewExperiencia(); break;
+        case 'actividades': main.innerHTML = viewActividades(); break;
         case 'licitaciones': main.innerHTML = viewLicitaciones(); break;
         case 'contactos': main.innerHTML = viewContactos(); break;
         case 'config': main.innerHTML = viewConfig(); break;
+        default: main.innerHTML = viewDashboard(); break;
     }
 
-    // bindAppEvents se define en app.js, asegurarse que esté disponible
+    // ========== IMPORTANTE: BIND APP EVENTS ==========
     if (typeof bindAppEvents === 'function') {
         bindAppEvents();
+    } else {
+        console.warn('bindAppEvents no está definida. Verifica que app.js se cargó correctamente.');
     }
 }
