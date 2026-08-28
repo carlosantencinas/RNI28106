@@ -3,6 +3,9 @@
 // ============================================================
 
 // Exponer funciones globales
+// En app.js, en la sección de funciones globales, asegurar que todas estén declaradas:
+
+// Exponer funciones globales
 window.openPagoFromCotizacion = openPagoFromCotizacion;
 window.toggleCotSort = toggleCotSort;
 window.togglePagoSort = togglePagoSort;
@@ -17,17 +20,21 @@ window.clearLicFilters = clearLicFilters;
 window.clearContFilters = clearContFilters;
 window.clearActFilters = clearActFilters;
 window.calcularEdad = calcularEdad;
-window.openColumnSelectorModal = openColumnSelectorModal; // <-- AGREGAR ESTA LÍNEA
+window.openColumnSelectorModal = openColumnSelectorModal;
 window.exportDebtsWithColumns = exportDebtsWithColumns;
 window.exportDebts = exportDebts;
+
+// Funciones de pagos
 window.editarPagoHistorial = editarPagoHistorial;
 window.eliminarPagoHistorial = eliminarPagoHistorial;
 window.eliminarPagoPrincipal = eliminarPagoPrincipal;
 window.abrirCotizacion = abrirCotizacion;
 window.togglePagoDetalle = togglePagoDetalle;
+window.openRegisterPagoModalFromDetalle = openRegisterPagoModalFromDetalle;
+
+// Funciones de actividades
 window.verActividadDetalle = verActividadDetalle;
 window.openActModal = openActModal;
-
 // ============================================================
 // BIND APP EVENTS - Manejadores de eventos
 // ============================================================
