@@ -3,49 +3,52 @@
 // ============================================================
 
 // ---- COTIZACIONES ----
-// ---- DOCUMENTOS ----
-function applyDocFiltersAndSort(data) {
+function applyCotFiltersAndSort(data) {
     let result = [...data];
-    if (S.docFilters.tipo) {
-        result = result.filter(d => d.tipo === S.docFilters.tipo);
+    if (S.cotFilters.fecha) {
+        result = result.filter(c => c.fecha && c.fecha.includes(S.cotFilters.fecha));
     }
-    if (S.docFilters.vigente === 'vigente') {
-        const hoy = new Date().toISOString().slice(0, 10);
-        result = result.filter(d => !d.fechaVencimiento || d.fechaVencimiento >= hoy);
-    } else if (S.docFilters.vigente === 'vencido') {
-        const hoy = new Date().toISOString().slice(0, 10);
-        result = result.filter(d => d.fechaVencimiento && d.fechaVencimiento < hoy);
+    if (S.cotFilters.cliente) {
+        const filter = S.cotFilters.cliente.toLowerCase().trim();
+        result = result.filter(c => c.cliente && c.cliente.toLowerCase().includes(filter));
     }
-    if (S.docSort.column) {
+    if (S.cotFilters.estado) {
+        result = result.filter(c => c.estado === S.cotFilters.estado);
+    }
+    if (S.cotSort.column) {
         result.sort((a, b) => {
-            let valA = a[S.docSort.column] || '';
-            let valB = b[S.docSort.column] || '';
+            let valA = a[S.cotSort.column] || '';
+            let valB = b[S.cotSort.column] || '';
+            if (S.cotSort.column === 'total') {
+                valA = Number(valA) || 0;
+                valB = Number(valB) || 0;
+            }
             if (typeof valA === 'string') valA = valA.toLowerCase();
             if (typeof valB === 'string') valB = valB.toLowerCase();
-            if (valA < valB) return S.docSort.direction === 'asc' ? -1 : 1;
-            if (valA > valB) return S.docSort.direction === 'asc' ? 1 : -1;
+            if (valA < valB) return S.cotSort.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return S.cotSort.direction === 'asc' ? 1 : -1;
             return 0;
         });
     }
     return result;
 }
 
-function toggleDocSort(column) {
-    if (S.docSort.column === column) {
-        S.docSort.direction = S.docSort.direction === 'asc' ? 'desc' : 'asc';
+function toggleCotSort(column) {
+    if (S.cotSort.column === column) {
+        S.cotSort.direction = S.cotSort.direction === 'asc' ? 'desc' : 'asc';
     } else {
-        S.docSort.column = column;
-        S.docSort.direction = 'asc';
+        S.cotSort.column = column;
+        S.cotSort.direction = 'asc';
     }
     render();
 }
 
-function clearDocFilters() {
-    S.docFilters = { tipo: '', vigente: '' };
-    S.docSort = { column: null, direction: 'asc' };
-    document.querySelectorAll('.doc-filter-bar input, .doc-filter-bar select').forEach(el => {
+function clearCotFilters() {
+    S.cotFilters = { fecha: '', cliente: '', estado: '' };
+    S.cotSort = { column: null, direction: 'asc' };
+    document.querySelectorAll('.cot-filter-bar input, .cot-filter-bar select').forEach(el => {
         if (el.tagName === 'SELECT') el.value = '';
-        else el.value = '';
+        else if (el.type === 'text' || el.type === 'date') el.value = '';
     });
     render();
 }
@@ -71,6 +74,8 @@ function applyPagoFiltersAndSort(data) {
                 valA = Number(valA) || 0;
                 valB = Number(valB) || 0;
             }
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
             if (valA < valB) return S.pagoSort.direction === 'asc' ? -1 : 1;
             if (valA > valB) return S.pagoSort.direction === 'asc' ? 1 : -1;
             return 0;
@@ -308,6 +313,53 @@ function clearActFilters() {
     S.actFilters = { tipo: '', fecha: '', cliente: '', proyecto: '' };
     S.actSort = { column: null, direction: 'asc' };
     document.querySelectorAll('.act-filter-bar input, .act-filter-bar select').forEach(el => {
+        if (el.tagName === 'SELECT') el.value = '';
+        else el.value = '';
+    });
+    render();
+}
+
+// ---- DOCUMENTOS ----
+function applyDocFiltersAndSort(data) {
+    let result = [...data];
+    if (S.docFilters.tipo) {
+        result = result.filter(d => d.tipo === S.docFilters.tipo);
+    }
+    if (S.docFilters.vigente === 'vigente') {
+        const hoy = new Date().toISOString().slice(0, 10);
+        result = result.filter(d => !d.fechaVencimiento || d.fechaVencimiento >= hoy);
+    } else if (S.docFilters.vigente === 'vencido') {
+        const hoy = new Date().toISOString().slice(0, 10);
+        result = result.filter(d => d.fechaVencimiento && d.fechaVencimiento < hoy);
+    }
+    if (S.docSort.column) {
+        result.sort((a, b) => {
+            let valA = a[S.docSort.column] || '';
+            let valB = b[S.docSort.column] || '';
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+            if (valA < valB) return S.docSort.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return S.docSort.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+    return result;
+}
+
+function toggleDocSort(column) {
+    if (S.docSort.column === column) {
+        S.docSort.direction = S.docSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        S.docSort.column = column;
+        S.docSort.direction = 'asc';
+    }
+    render();
+}
+
+function clearDocFilters() {
+    S.docFilters = { tipo: '', vigente: '' };
+    S.docSort = { column: null, direction: 'asc' };
+    document.querySelectorAll('.doc-filter-bar input, .doc-filter-bar select').forEach(el => {
         if (el.tagName === 'SELECT') el.value = '';
         else el.value = '';
     });
