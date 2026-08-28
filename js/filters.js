@@ -120,19 +120,15 @@ function applyExpFiltersAndSort(data) {
         result = result.filter(e => e.cargo && e.cargo.toLowerCase().includes(filter));
     }
     if (S.expFilters.desde) {
-        result = result.filter(e => e.desde && e.desde >= S.expFilters.desde);
+        result = result.filter(e => e.inicio && e.inicio >= S.expFilters.desde);
     }
     if (S.expFilters.hasta) {
-        result = result.filter(e => e.hasta && e.hasta <= S.expFilters.hasta);
+        result = result.filter(e => e.fin && e.fin <= S.expFilters.hasta);
     }
     if (S.expSort.column) {
         result.sort((a, b) => {
             let valA = a[S.expSort.column] || '';
             let valB = b[S.expSort.column] || '';
-            if (S.expSort.column === 'monto') {
-                valA = Number(valA) || 0;
-                valB = Number(valB) || 0;
-            }
             if (typeof valA === 'string') valA = valA.toLowerCase();
             if (typeof valB === 'string') valB = valB.toLowerCase();
             if (valA < valB) return S.expSort.direction === 'asc' ? -1 : 1;
@@ -156,10 +152,7 @@ function toggleExpSort(column) {
 function clearExpFilters() {
     S.expFilters = { entidad: '', objeto: '', cargo: '', desde: '', hasta: '' };
     S.expSort = { column: null, direction: 'asc' };
-    document.querySelectorAll('.exp-filter-bar input, .exp-filter-bar select').forEach(el => {
-        if (el.tagName === 'SELECT') el.value = '';
-        else if (el.type === 'text' || el.type === 'date') el.value = '';
-    });
+    document.querySelectorAll('.exp-filter-bar input').forEach(el => el.value = '');
     render();
 }
 
@@ -167,28 +160,24 @@ function clearExpFilters() {
 function applyLicFiltersAndSort(data) {
     let result = [...data];
     if (S.licFilters.convocatoria) {
-        const f = S.licFilters.convocatoria.toLowerCase().trim();
-        result = result.filter(l => l.convocatoria && l.convocatoria.toLowerCase().includes(f));
+        const filter = S.licFilters.convocatoria.toLowerCase().trim();
+        result = result.filter(l => l.convocatoria && l.convocatoria.toLowerCase().includes(filter));
     }
     if (S.licFilters.proyecto) {
-        const f = S.licFilters.proyecto.toLowerCase().trim();
-        result = result.filter(l => l.proyecto && l.proyecto.toLowerCase().includes(f));
-    }
-    if (S.licFilters.entidad) {
-        const f = S.licFilters.entidad.toLowerCase().trim();
-        result = result.filter(l => l.entidad && l.entidad.toLowerCase().includes(f));
+        const filter = S.licFilters.proyecto.toLowerCase().trim();
+        result = result.filter(l => l.proyecto && l.proyecto.toLowerCase().includes(filter));
     }
     if (S.licFilters.estado) {
         result = result.filter(l => l.estado === S.licFilters.estado);
+    }
+    if (S.licFilters.entidad) {
+        const filter = S.licFilters.entidad.toLowerCase().trim();
+        result = result.filter(l => l.entidad && l.entidad.toLowerCase().includes(filter));
     }
     if (S.licSort.column) {
         result.sort((a, b) => {
             let valA = a[S.licSort.column] || '';
             let valB = b[S.licSort.column] || '';
-            if (S.licSort.column === 'monto') {
-                valA = Number(valA) || 0;
-                valB = Number(valB) || 0;
-            }
             if (typeof valA === 'string') valA = valA.toLowerCase();
             if (typeof valB === 'string') valB = valB.toLowerCase();
             if (valA < valB) return S.licSort.direction === 'asc' ? -1 : 1;
@@ -223,16 +212,16 @@ function clearLicFilters() {
 function applyContFiltersAndSort(data) {
     let result = [...data];
     if (S.contFilters.nombre) {
-        const f = S.contFilters.nombre.toLowerCase().trim();
-        result = result.filter(c => c.nombre && c.nombre.toLowerCase().includes(f));
+        const filter = S.contFilters.nombre.toLowerCase().trim();
+        result = result.filter(c => c.nombre && c.nombre.toLowerCase().includes(filter));
     }
     if (S.contFilters.empresa) {
-        const f = S.contFilters.empresa.toLowerCase().trim();
-        result = result.filter(c => c.empresa && c.empresa.toLowerCase().includes(f));
+        const filter = S.contFilters.empresa.toLowerCase().trim();
+        result = result.filter(c => c.empresa && c.empresa.toLowerCase().includes(filter));
     }
     if (S.contFilters.cargo) {
-        const f = S.contFilters.cargo.toLowerCase().trim();
-        result = result.filter(c => c.cargo && c.cargo.toLowerCase().includes(f));
+        const filter = S.contFilters.cargo.toLowerCase().trim();
+        result = result.filter(c => c.cargo && c.cargo.toLowerCase().includes(filter));
     }
     if (S.contSort.column) {
         result.sort((a, b) => {
@@ -261,10 +250,7 @@ function toggleContSort(column) {
 function clearContFilters() {
     S.contFilters = { nombre: '', empresa: '', cargo: '' };
     S.contSort = { column: null, direction: 'asc' };
-    document.querySelectorAll('.cont-filter-bar input, .cont-filter-bar select').forEach(el => {
-        if (el.tagName === 'SELECT') el.value = '';
-        else el.value = '';
-    });
+    document.querySelectorAll('.cont-filter-bar input').forEach(el => el.value = '');
     render();
 }
 
@@ -321,25 +307,32 @@ function clearActFilters() {
 
 // ---- DOCUMENTOS ----
 function applyDocFiltersAndSort(data) {
-    let result = [...data];
-    if (S.docFilters.tipo) {
-        result = result.filter(d => d.tipo === S.docFilters.tipo);
+    let result = Array.isArray(data) ? [...data] : [];
+
+    // Protección defensiva: versiones antiguas de state.js no tenían docFilters.
+    const filters = S.docFilters || { tipo: '', vigente: '' };
+    const sort = S.docSort || { column: null, direction: 'asc' };
+
+    if (filters.tipo) {
+        result = result.filter(d => d.tipo === filters.tipo);
     }
-    if (S.docFilters.vigente === 'vigente') {
+
+    if (filters.vigente === 'vigente') {
         const hoy = new Date().toISOString().slice(0, 10);
         result = result.filter(d => !d.fechaVencimiento || d.fechaVencimiento >= hoy);
-    } else if (S.docFilters.vigente === 'vencido') {
+    } else if (filters.vigente === 'vencido') {
         const hoy = new Date().toISOString().slice(0, 10);
         result = result.filter(d => d.fechaVencimiento && d.fechaVencimiento < hoy);
     }
-    if (S.docSort.column) {
+
+    if (sort.column) {
         result.sort((a, b) => {
-            let valA = a[S.docSort.column] || '';
-            let valB = b[S.docSort.column] || '';
+            let valA = a[sort.column] || '';
+            let valB = b[sort.column] || '';
             if (typeof valA === 'string') valA = valA.toLowerCase();
             if (typeof valB === 'string') valB = valB.toLowerCase();
-            if (valA < valB) return S.docSort.direction === 'asc' ? -1 : 1;
-            if (valA > valB) return S.docSort.direction === 'asc' ? 1 : -1;
+            if (valA < valB) return sort.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sort.direction === 'asc' ? 1 : -1;
             return 0;
         });
     }
@@ -347,6 +340,8 @@ function applyDocFiltersAndSort(data) {
 }
 
 function toggleDocSort(column) {
+    if (!S.docSort) S.docSort = { column: null, direction: 'asc' };
+
     if (S.docSort.column === column) {
         S.docSort.direction = S.docSort.direction === 'asc' ? 'desc' : 'asc';
     } else {
@@ -360,8 +355,7 @@ function clearDocFilters() {
     S.docFilters = { tipo: '', vigente: '' };
     S.docSort = { column: null, direction: 'asc' };
     document.querySelectorAll('.doc-filter-bar input, .doc-filter-bar select').forEach(el => {
-        if (el.tagName === 'SELECT') el.value = '';
-        else el.value = '';
+        el.value = '';
     });
     render();
 }
