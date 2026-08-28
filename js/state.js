@@ -12,6 +12,11 @@ const S = {
     cursos: [],
     // ========== NUEVO: ACTIVIDADES ==========
     actividades: [],
+        // ========== NUEVO: DOCUMENTOS ADMINISTRATIVOS ==========
+    documentos: [],
+    licitaciones: [],
+    contactos: [],
+    referencias: [],
     datosPersonales: {
         nombre: '',
         ci: '',
@@ -36,9 +41,7 @@ const S = {
     firebaseConnected: false,
     selectedDebts: new Set(),
     // LICITACIONES
-    licitaciones: [],
-    contactos: [],
-    referencias: [],
+
     licFilters: { convocatoria: '', proyecto: '', estado: '', entidad: '' },
     licSort: { column: null, direction: 'asc' },
     contFilters: { nombre: '', empresa: '', cargo: '' },
@@ -52,13 +55,7 @@ const S = {
 // STATE GLOBAL (ACTUALIZADO)
 // ============================================================
    
-    // ========== NUEVO: DOCUMENTOS ADMINISTRATIVOS ==========
-    documentos: [],
-    docFilters: { tipo: '', vigente: '' },
-    docSort: { column: null, direction: 'asc' },
-    
-    // ========== NUEVO: ACTIVIDADES ==========
-    actividades: [],
+
     actFilters: { tipo: '', fecha: '', cliente: '', proyecto: '' },
     actSort: { column: null, direction: 'asc' }
 };
