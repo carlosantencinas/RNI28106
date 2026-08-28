@@ -259,3 +259,54 @@ function clearContFilters() {
     });
     render();
 }
+
+// ---- ACTIVIDADES ----
+function applyActFiltersAndSort(data) {
+    let result = [...data];
+    if (S.actFilters.tipo) {
+        result = result.filter(a => a.tipo === S.actFilters.tipo);
+    }
+    if (S.actFilters.fecha) {
+        result = result.filter(a => a.fecha && a.fecha.includes(S.actFilters.fecha));
+    }
+    if (S.actFilters.cliente) {
+        const f = S.actFilters.cliente.toLowerCase().trim();
+        result = result.filter(a => a.cliente && a.cliente.toLowerCase().includes(f));
+    }
+    if (S.actFilters.proyecto) {
+        const f = S.actFilters.proyecto.toLowerCase().trim();
+        result = result.filter(a => a.proyecto && a.proyecto.toLowerCase().includes(f));
+    }
+    if (S.actSort.column) {
+        result.sort((a, b) => {
+            let valA = a[S.actSort.column] || '';
+            let valB = b[S.actSort.column] || '';
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+            if (valA < valB) return S.actSort.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return S.actSort.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+    return result;
+}
+
+function toggleActSort(column) {
+    if (S.actSort.column === column) {
+        S.actSort.direction = S.actSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        S.actSort.column = column;
+        S.actSort.direction = 'asc';
+    }
+    render();
+}
+
+function clearActFilters() {
+    S.actFilters = { tipo: '', fecha: '', cliente: '', proyecto: '' };
+    S.actSort = { column: null, direction: 'asc' };
+    document.querySelectorAll('.act-filter-bar input, .act-filter-bar select').forEach(el => {
+        if (el.tagName === 'SELECT') el.value = '';
+        else el.value = '';
+    });
+    render();
+}
