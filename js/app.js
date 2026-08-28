@@ -486,7 +486,7 @@ function viewCotizaciones() {
 }
 
 // ============================================================
-// VIEW - ADMINISTRATIVO (Nuevo apartado)
+// VIEW - ADMINISTRATIVO
 // ============================================================
 
 function viewAdministrativo() {
@@ -979,9 +979,6 @@ function renderPagoDetalle(pago, cot, historialPagos) {
     const pagoId = pago.id;
     const cotId = cot ? cot.id : '';
 
-    // Verificar si verActividadDetalle existe
-    const verActividadFn = typeof window.verActividadDetalle === 'function' ? 'window.verActividadDetalle' : 'verActividadDetalle';
-
     return `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
             <div>
@@ -1451,7 +1448,7 @@ function viewConfig() {
     </div></div>`;
 }
 
-// ---- ACTIVIDADES ----
+// ---- ACTIVIDADES (con data-ver-act en lugar de onclick) ----
 function viewActividades() {
     const rows = applyActFiltersAndSort(S.actividades || []);
     const clientesUnicos = [...new Set(S.actividades.map(a => a.cliente).filter(Boolean))].sort();
