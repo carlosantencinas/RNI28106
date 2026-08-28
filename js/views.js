@@ -154,8 +154,7 @@ function renderExperienciaTabla() {
     return html;
 }
 
-// ---- DASHBOARD (con pagos pendientes mejorados) ----
-// ---- DASHBOARD (CON MONTO TOTAL DE EXPERIENCIA Y NÚMEROS GRANDES) ----
+// ---- DASHBOARD ----
 function viewDashboard() {
     const cots = S.cotizaciones;
     const pagos = S.pagos;
@@ -204,10 +203,7 @@ function viewDashboard() {
     const totalAceptado = cots.filter(c => c.estado === 'aceptada').reduce((s, c) => s + cotTotal(c), 0);
     const totalCobrado = pagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
     const totalPorCobrar = pagos.reduce((s, p) => s + Math.max(0, Number(p.monto) - Number(p.montoPagado || 0)), 0);
-    
-    // ========== MONTO TOTAL DE EXPERIENCIA ==========
     const totalExperiencia = exp.reduce((s, e) => s + Number(e.monto || 0), 0);
-    
     const edad = calcularEdad(S.datosPersonales.fechaNacimiento);
 
     const adjudicadas = lic.filter(l => l.estado === 'adjudicada').length;
@@ -294,7 +290,6 @@ function viewDashboard() {
         return html;
     }
 
-    // ========== GRÁFICO DE MONTOS POR CARGO CON NÚMEROS GRANDES ==========
     function renderCargosChart() {
         if (!exp.length) {
             return '<div style="color:var(--text-soft);font-size:13px;">Sin datos de experiencia aún.</div>';
@@ -311,7 +306,6 @@ function viewDashboard() {
         const colores = ['#1A4A5C', '#3A7A8F', '#B8862E', '#27AE60', '#C0392B', '#8E44AD'];
         
         return topCargos.map(([cargo, monto], i) => {
-            // Formatear el monto con separadores de miles
             const montoFormateado = bs(monto);
             const porcentaje = (monto / maxCargo * 100) || 0;
             
@@ -327,7 +321,6 @@ function viewDashboard() {
         }).join('');
     }
 
-    // ========== GRÁFICO DE MONTOS POR ENTIDAD CON NÚMEROS GRANDES ==========
     function renderEntidadesChart() {
         if (!exp.length) {
             return '<div style="color:var(--text-soft);font-size:13px;">Sin datos de experiencia aún.</div>';
@@ -359,9 +352,6 @@ function viewDashboard() {
         }).join('');
     }
 
-    // ============================================================
-    // HTML DEL DASHBOARD
-    // ============================================================
     return `
     <div class="page-head">
         <div><p class="eyebrow">Panel general</p><h1>Dashboard</h1><p>Resumen de cotizaciones, cobros, experiencia y licitaciones.</p></div>
@@ -378,7 +368,6 @@ function viewDashboard() {
         <div class="kpi danger"><div class="label">No adjudicadas</div><div class="val">${noAdjudicadas}</div><div class="sub">${totalLicitaciones > 0 ? Math.round(noAdjudicadas/totalLicitaciones*100) : 0}% del total</div></div>
     </div>
 
-    <!-- ========== NUEVO KPI: MONTO TOTAL DE EXPERIENCIA ========== -->
     <div class="kpi-grid" style="margin-top:-10px;">
         <div class="kpi" style="grid-column: span 2;">
             <div class="label">💰 Monto total de experiencia</div>
@@ -431,8 +420,8 @@ function viewDashboard() {
         </div>
     </div>`;
 }
+
 // ---- COTIZACIONES ----
-// ---- COTIZACIONES (CON PLAZO) ----
 function viewCotizaciones() {
     const rows = applyCotFiltersAndSort(S.cotizaciones || []);
     const estados = ['borrador', 'enviada', 'aceptada', 'rechazada'];
@@ -471,9 +460,6 @@ function viewCotizaciones() {
                 </thead>
                 <tbody>
                     ${rows.map(c => {
-                        const pagosRel = S.pagos.filter(p => p.cotizacionId === c.id);
-                        const totalPagado = pagosRel.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
-                        // Calcular plazo total desde items
                         const plazoTotal = c.items ? c.items.reduce((sum, item) => sum + (Number(item.plazo) || 0), 0) : 0;
                         return `<tr>
                             <td class="tnum" style="white-space:nowrap;">${fmtDate(c.fecha)}</td>
@@ -498,23 +484,17 @@ function viewCotizaciones() {
         </div>
     </div>`;
 }
-// ---- PAGOS POR COBRAR (con checkboxes y proyecto) ----
-// ---- PAGOS POR COBRAR (con checkboxes, proyecto y selector de columnas) ----
-// ---- PAGOS POR COBRAR (con sub-pestaña de detalle y pagos parciales) ----
-// ---- PAGOS POR COBRAR (CON HISTORIAL DE CERRADOS) ----
-// ---- PAGOS POR COBRAR (CON HISTORIAL DE CERRADOS) ----
+
+// ---- PAGOS POR COBRAR ----
 function viewPagos() {
-    // ========== CALCULAR COSTOS DE ACTIVIDADES ==========
     const costoActividades = typeof obtenerCostoTotalCobrado === 'function' ? obtenerCostoTotalCobrado() : 0;
     const detalleCostos = typeof obtenerDetalleCostosPorProyecto === 'function' ? obtenerDetalleCostosPorProyecto() : {};
     
-    // Pagos pendientes (con saldo > 0)
     const rows = applyPagoFiltersAndSort(S.pagos.filter(p => {
         const saldo = Number(p.monto) - Number(p.montoPagado || 0);
         return saldo > 0.01;
     }) || []);
     
-    // Pagos cerrados (saldo <= 0)
     const pagosCerrados = S.pagos.filter(p => {
         const saldo = Number(p.monto) - Number(p.montoPagado || 0);
         return saldo <= 0.01 && Number(p.monto) > 0;
@@ -523,7 +503,6 @@ function viewPagos() {
     const estados = ['pendiente', 'parcial', 'pagado'];
     const clientesUnicos = [...new Set(S.pagos.map(p => p.cliente).filter(Boolean))].sort();
 
-    // Verificar selección
     const allVisibleSelected = rows.length > 0 && rows.every(p => S.selectedDebts.has(p.id));
     const selectedCount = rows.filter(p => S.selectedDebts.has(p.id)).length;
     const validSelected = rows
@@ -621,7 +600,6 @@ function viewPagos() {
         tableHtml = `<div class="empty">${ICONS.empty}<div>🎉 No hay pagos pendientes.</div></div>`;
     }
 
-    // ========== HISTORIAL DE PAGOS CERRADOS ==========
     let historialHtml = '';
     if (pagosCerrados.length > 0) {
         const cerradosOrdenados = pagosCerrados.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
@@ -667,7 +645,6 @@ function viewPagos() {
         `;
     }
 
-    // ========== HEADER CON COSTOS DE ACTIVIDADES ==========
     const headerCostoActividades = (costoActividades > 0) ? `
         <div style="margin-top:6px;padding:6px 14px;background:#FFF3E0;border-radius:var(--radius);border-left:4px solid var(--accent);font-size:13px;">
             <strong>💰 Costo de actividades por cobrar:</strong> ${bs(costoActividades)}
@@ -708,22 +685,12 @@ function viewPagos() {
         </div>
     </div>`;
 }
-    // ========== HISTORIAL DE PAGOS CERRADOS ==========
-    let historialHtml = '';
-    if (pagosCerrados.length > 0) {
-        const cerradosOrdenados = pagosCerrados.sort((a, b) => (b.fecha || '').
 
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO ----
-// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
-// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
-// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
-// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
-// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CON EDICIÓN) ----
 function renderPagoDetalle(pago, cot, historialPagos) {
     const saldo = Number(pago.monto) - Number(pago.montoPagado || 0);
     const esCompletamentePagado = saldo <= 0.01;
 
-    // OBTENER TODOS LOS PAGOS ASOCIADOS
     let todosLosPagos = [];
     
     if (pago.cotizacionId) {
@@ -751,55 +718,41 @@ function renderPagoDetalle(pago, cot, historialPagos) {
 
     return `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-            <!-- Columna Izquierda: Información del trabajo -->
             <div>
                 <div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">📋 Información del trabajo</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;">
                     <div><strong>Descripción:</strong></div>
                     <div>${esc(pago.descripcion||'—')}</div>
-                    
                     <div><strong>Cliente:</strong></div>
                     <div>${esc(pago.cliente||'—')}</div>
-                    
                     <div><strong>Proyecto:</strong></div>
                     <div>${cot ? esc(cot.proyecto || '—') : '—'}</div>
-                    
                     <div><strong>Fecha registro:</strong></div>
                     <div>${fmtDate(pago.fecha)}</div>
-                    
                     <div><strong>Monto total:</strong></div>
                     <div style="font-weight:600;">${bs(pago.monto)}</div>
-                    
                     <div><strong>Pagado:</strong></div>
                     <div style="color:var(--success);font-weight:600;">${bs(pago.montoPagado||0)}</div>
-                    
                     <div><strong>Saldo pendiente:</strong></div>
                     <div style="color:${saldo > 0 ? 'var(--danger)' : 'var(--success)'};font-weight:600;">${bs(saldo)}</div>
-                    
                     <div><strong>Estado:</strong></div>
                     <div><span class="stamp ${pagoEstado(pago)}">${pagoEstado(pago)}</span></div>
-                    
                     ${pago.metodoPago ? `
                         <div><strong>Método de pago:</strong></div>
                         <div><span class="metodo-pago-badge ${pago.metodoPago}">${metodoPagoLabel(pago.metodoPago)}</span></div>
                     ` : ''}
-                    
                     ${pago.comprobante ? `
                         <div><strong>Comprobante:</strong></div>
                         <div><span class="comprobante-num">#${esc(pago.comprobante)}</span></div>
                     ` : ''}
-                    
                     ${pago.notas ? `
                         <div><strong>Notas:</strong></div>
                         <div style="grid-column:span 2;font-size:12px;color:var(--text-soft);padding:4px 8px;background:var(--gantt-bg);border-radius:4px;white-space:pre-wrap;max-height:100px;overflow-y:auto;">${esc(pago.notas)}</div>
                     ` : ''}
                 </div>
             </div>
-
-            <!-- Columna Derecha: Registro de pagos y acciones -->
             <div>
                 <div style="font-weight:600;font-size:14px;color:var(--primary);margin-bottom:8px;">💰 Registro de pagos (${todosLosPagos.length})</div>
-                
                 ${todosLosPagos.length > 0 ? `
                     <div class="payment-history" style="max-height:300px;margin-bottom:12px;overflow-y:auto;">
                         ${todosLosPagos.map(p => `
@@ -815,16 +768,10 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                                 </div>
                                 <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px;">
                                     <span style="font-weight:600;font-size:13px;white-space:nowrap;">${bs(p.montoPagado)}</span>
-                                    <!-- BOTÓN EDITAR -->
                                     <button class="iconbtn" style="padding:2px 5px;font-size:11px;color:var(--primary);border-color:var(--primary);" 
-                                        onclick="editarPagoHistorial('${p.id}')" title="Editar este pago">
-                                        ✏️
-                                    </button>
-                                    <!-- BOTÓN ELIMINAR -->
+                                        onclick="editarPagoHistorial('${p.id}')" title="Editar este pago">✏️</button>
                                     <button class="iconbtn" style="padding:2px 5px;font-size:11px;color:var(--danger);border-color:var(--danger);" 
-                                        onclick="eliminarPagoHistorial('${p.id}')" title="Eliminar este pago">
-                                        ✕
-                                    </button>
+                                        onclick="eliminarPagoHistorial('${p.id}')" title="Eliminar este pago">✕</button>
                                 </div>
                             </div>
                         `).join('')}
@@ -836,11 +783,8 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                 ` : `
                     <div style="font-size:13px;color:var(--text-soft);padding:12px;background:var(--gantt-bg);border-radius:4px;margin-bottom:12px;text-align:center;">
                         No hay pagos registrados para este trabajo.
-                        <br><span style="font-size:11px;">Haz clic en "Registrar pago" para agregar uno.</span>
                     </div>
                 `}
-
-                <!-- Barra de progreso -->
                 <div style="margin-bottom:12px;">
                     <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-soft);margin-bottom:4px;">
                         <span>Progreso de pago</span>
@@ -850,8 +794,6 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                         <div style="height:100%;border-radius:4px;background:${(Number(pago.montoPagado||0) / Number(pago.monto)) >= 0.8 ? 'var(--success)' : 'var(--accent)'};width:${Math.min(100, (Number(pago.montoPagado||0) / Number(pago.monto)) * 100)}%;transition:width 0.5s ease;"></div>
                     </div>
                 </div>
-
-                <!-- Acciones rápidas -->
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     ${!esCompletamentePagado ? `
                         <button class="btn btn-sm btn-success" onclick="openRegisterPagoModalFromDetalle('${pagoId}')">
@@ -861,28 +803,23 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                         <span style="font-size:13px;color:var(--success);font-weight:600;">✅ Completamente pagado</span>
                     `}
                     ${cot ? `
-                        <button class="btn btn-sm btn-ghost" onclick="abrirCotizacion('${cotId}')">
-                            📄 Ver cotización
-                        </button>
+                        <button class="btn btn-sm btn-ghost" onclick="abrirCotizacion('${cotId}')">📄 Ver cotización</button>
                     ` : ''}
-                    <button class="btn btn-sm btn-danger" onclick="eliminarPagoPrincipal('${pagoId}')" style="border-color:var(--danger);color:var(--danger);">
-                        🗑️ Eliminar deuda
-                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarPagoPrincipal('${pagoId}')" style="border-color:var(--danger);color:var(--danger);">🗑️ Eliminar deuda</button>
                 </div>
             </div>
         </div>
     `;
 }
-// ---- FUNCIÓN PARA ABRIR COTIZACIÓN (CORREGIDA) ----
+
+// ---- FUNCIÓN PARA ABRIR COTIZACIÓN ----
 function abrirCotizacion(cotId) {
     if (!cotId) {
         toast('⚠️ No hay cotización asociada.');
         return;
     }
-    // Cambiar a la vista de cotizaciones y abrir el modal de edición
     S.view = 'cotizaciones';
     render();
-    // Usar setTimeout para asegurar que el DOM esté renderizado
     setTimeout(() => {
         const editBtn = document.querySelector(`[data-edit-cot="${cotId}"]`);
         if (editBtn) {
@@ -891,89 +828,6 @@ function abrirCotizacion(cotId) {
             toast('⚠️ No se encontró la cotización para editar.');
         }
     }, 200);
-}
-
-// ---- FUNCIÓN PARA ELIMINAR UN PAGO DEL HISTORIAL ----
-async function eliminarPagoHistorial(pagoId) {
-    if (!confirm('¿Estás seguro de que deseas eliminar este pago registrado?')) {
-        return;
-    }
-    
-    try {
-        // Buscar el pago en el historial
-        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
-        if (pagoIndex === -1) {
-            toast('⚠️ No se encontró el pago.');
-            return;
-        }
-        
-        // Obtener el pago para saber a qué deuda principal pertenece
-        const pagoEliminado = S.pagos[pagoIndex];
-        
-        // Buscar la deuda principal (el pago que tiene el monto total)
-        // Esto asume que el pago principal es el que tiene cotizacionId y es el primero
-        const pagoPrincipal = S.pagos.find(p => 
-            p.cotizacionId === pagoEliminado.cotizacionId && 
-            p.id !== pagoEliminado.id &&
-            p.monto > 0
-        );
-        
-        // Eliminar el pago del historial
-        S.pagos.splice(pagoIndex, 1);
-        await savePagos(S.user?.uid);
-        
-        // Si existe un pago principal, actualizar su montoPagado restando el monto eliminado
-        if (pagoPrincipal) {
-            const montoEliminado = Number(pagoEliminado.montoPagado || 0);
-            pagoPrincipal.montoPagado = Math.max(0, (Number(pagoPrincipal.montoPagado || 0) - montoEliminado));
-            
-            // Actualizar el pago principal
-            const principalIndex = S.pagos.findIndex(p => p.id === pagoPrincipal.id);
-            if (principalIndex !== -1) {
-                S.pagos[principalIndex] = pagoPrincipal;
-                await savePagos(S.user?.uid);
-            }
-        }
-        
-        toast('✅ Pago eliminado correctamente.');
-        render();
-    } catch (error) {
-        console.error('Error al eliminar pago:', error);
-        toast('❌ Error al eliminar el pago.');
-    }
-}
-
-// ---- FUNCIÓN PARA ELIMINAR LA DEUDA PRINCIPAL ----
-async function eliminarPagoPrincipal(pagoId) {
-    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar esta deuda y todos sus pagos asociados?')) {
-        return;
-    }
-    
-    try {
-        // Buscar la deuda principal
-        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
-        if (pagoIndex === -1) {
-            toast('⚠️ No se encontró la deuda.');
-            return;
-        }
-        
-        const pagoEliminado = S.pagos[pagoIndex];
-        
-        // Eliminar todos los pagos asociados a esta deuda (misma cotizacionId)
-        const pagosAsociados = S.pagos.filter(p => p.cotizacionId === pagoEliminado.cotizacionId && p.id !== pagoId);
-        const idsAEliminar = pagosAsociados.map(p => p.id);
-        
-        // Eliminar la deuda principal y sus asociados
-        S.pagos = S.pagos.filter(p => p.id !== pagoId && !idsAEliminar.includes(p.id));
-        await savePagos(S.user?.uid);
-        
-        toast('✅ Deuda y pagos asociados eliminados correctamente.');
-        S.expandedPagoId = null; // Cerrar el detalle expandido
-        render();
-    } catch (error) {
-        console.error('Error al eliminar deuda:', error);
-        toast('❌ Error al eliminar la deuda.');
-    }
 }
 
 // ---- FUNCIÓN PARA ALTERNAR DETALLE DE PAGO ----
@@ -993,25 +847,9 @@ function openRegisterPagoModalFromDetalle(pagoId) {
         toast('⚠️ No se encontró el pago.');
         return;
     }
-    // Reutilizar el modal existente de registro de pago
     openRegisterPagoModal(pago);
 }
 
-// ---- FUNCIÓN PARA EXPORTAR DEUDA INDIVIDUAL ----
-function exportDebtIndividual(pagoId) {
-    const pago = S.pagos.find(p => p.id === pagoId);
-    if (!pago) {
-        toast('⚠️ No se encontró el pago.');
-        return;
-    }
-    const saldo = Number(pago.monto) - Number(pago.montoPagado || 0);
-    if (saldo <= 0.01) {
-        toast('⚠️ Esta deuda ya está completamente pagada.');
-        return;
-    }
-    // Exportar una sola deuda
-    exportDebtsWithColumns([pagoId], Object.keys(DEBT_COLUMNS));
-}
 // ---- CLIENTES ----
 function viewClientes() {
     const list = [...S.clientes].sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -1082,7 +920,6 @@ function viewExperiencia() {
             <button class="btn btn-primary" id="btn-new-exp">${ICONS.plus} Agregar proyecto</button>
         </div>
     </div>
-
     <div class="panel" style="margin-bottom:20px;">
         <div class="panel-h">
             <h3>📋 Hoja de vida — ${S.editingCV ? 'Editando' : 'Resumen'}</h3>
@@ -1139,21 +976,15 @@ function viewExperiencia() {
                 </div>
                 <div style="margin-bottom:12px;">
                     <strong>Formación académica (${S.formacion.length} títulos):</strong>
-                    <ul style="margin-top:4px;padding-left:20px;font-size:13px;">
-                        ${S.formacion.map(f => `<li>${f.grado} — ${f.institucion} (${fmtDate(f.desde)} - ${fmtDate(f.hasta)})</li>`).join('')}
-                    </ul>
+                    <ul style="margin-top:4px;padding-left:20px;font-size:13px;">${S.formacion.map(f => `<li>${f.grado} — ${f.institucion} (${fmtDate(f.desde)} - ${fmtDate(f.hasta)})</li>`).join('')}</ul>
                 </div>
                 <div>
                     <strong>Cursos de especialización (${S.cursos.length} cursos):</strong>
-                    <ul style="margin-top:4px;padding-left:20px;font-size:13px;">
-                        ${S.cursos.slice(0, 5).map(c => `<li>${c.curso} — ${c.institucion} (${c.horas}h)</li>`).join('')}
-                        ${S.cursos.length > 5 ? `<li style="color:var(--text-soft);">...y ${S.cursos.length - 5} cursos más</li>` : ''}
-                    </ul>
+                    <ul style="margin-top:4px;padding-left:20px;font-size:13px;">${S.cursos.slice(0, 5).map(c => `<li>${c.curso} — ${c.institucion} (${c.horas}h)</li>`).join('')}${S.cursos.length > 5 ? `<li style="color:var(--text-soft);">...y ${S.cursos.length - 5} cursos más</li>` : ''}</ul>
                 </div>
             `}
         </div>
     </div>
-
     <div class="panel" style="margin-bottom:20px;">
         <div class="panel-h">
             <h3>📊 Diagrama de Gantt</h3>
@@ -1168,15 +999,10 @@ function viewExperiencia() {
                 </div>
             </div>
         </div>
-        <div class="panel-body">
-            ${renderGantt()}
-        </div>
+        <div class="panel-body">${renderGantt()}</div>
     </div>
-
     <div class="panel">
-        <div class="panel-h">
-            <h3>Lista de proyectos (${S.experiencia.length} totales)</h3>
-        </div>
+        <div class="panel-h"><h3>Lista de proyectos (${S.experiencia.length} totales)</h3></div>
         <div class="panel-body">
             <div class="filter-bar exp-filter-bar">
                 <label>🔍 Filtros:</label>
@@ -1337,13 +1163,11 @@ function viewConfig() {
                 </div>
             `}
         </div>
-
         <div style="margin-bottom:24px;">
             <h4 style="font-size:13.5px;color:var(--primary);margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);">Firma para el PDF</h4>
             <div class="field"><label>Nombre / firma</label><input id="cfg-nombre" value="${attr(S.config.nombre)}"></div>
             <div class="field"><label>Credencial (RNI)</label><input id="cfg-rni" value="${attr(S.config.rni)}"></div>
         </div>
-
         <div style="margin-bottom:24px;">
             <h4 style="font-size:13.5px;color:var(--primary);margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);">Logo</h4>
             <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
@@ -1357,15 +1181,13 @@ function viewConfig() {
                 </div>
             </div>
         </div>
-
         <button class="btn btn-primary" id="btn-save-cfg">Guardar configuración</button>
     </div></div>`;
 }
 
-// ---- ACTIVIDADES (VIAJES Y REUNIONES) ----
+// ---- ACTIVIDADES ----
 function viewActividades() {
     const rows = applyActFiltersAndSort(S.actividades || []);
-    const tipos = Object.keys(TIPOS_ACTIVIDAD);
     const clientesUnicos = [...new Set(S.actividades.map(a => a.cliente).filter(Boolean))].sort();
 
     return `
@@ -1430,87 +1252,97 @@ function viewActividades() {
     </div>`;
 }
 
-// ---- DETALLE DE ACTIVIDAD ----
-function verActividadDetalle(actId) {
-    const act = S.actividades.find(a => a.id === actId);
-    if (!act) { toast('⚠️ Actividad no encontrada.'); return; }
+// ---- FUNCIÓN PARA ELIMINAR UN PAGO DEL HISTORIAL ----
+async function eliminarPagoHistorial(pagoId) {
+    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar este pago registrado?\n\nEsta acción no se puede deshacer.')) {
+        return;
+    }
     
-    const tipoInfo = TIPOS_ACTIVIDAD[act.tipo] || TIPOS_ACTIVIDAD.otro;
-    
-    const overlay = document.createElement('div');
-    overlay.className = 'overlay';
-    overlay.innerHTML = `
-        <div class="modal" style="max-width:600px;">
-            <div class="modal-h">
-                <h3>${tipoInfo.icon} Detalle de actividad</h3>
-                <button class="close" id="m-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
-                    <div><strong>Título:</strong></div>
-                    <div style="font-weight:600;">${esc(act.titulo)}</div>
-                    
-                    <div><strong>Tipo:</strong></div>
-                    <div><span style="color:${tipoInfo.color};">${tipoInfo.icon} ${tipoInfo.label}</span></div>
-                    
-                    <div><strong>Fecha:</strong></div>
-                    <div>${fmtDate(act.fecha)}</div>
-                    
-                    <div><strong>Cliente:</strong></div>
-                    <div>${esc(act.cliente||'—')}</div>
-                    
-                    <div><strong>Proyecto:</strong></div>
-                    <div>${esc(act.proyecto||'—')}</div>
-                    
-                    <div><strong>Ubicación:</strong></div>
-                    <div>${esc(act.ubicacion||'—')}</div>
-                    
-                    ${act.duracion ? `
-                        <div><strong>Duración:</strong></div>
-                        <div>${esc(act.duracion)}</div>
-                    ` : ''}
-                    
-                    ${act.costo ? `
-                        <div><strong>Costo:</strong></div>
-                        <div>${bs(act.costo)}</div>
-                    ` : ''}
-                    
-                    ${act.participantes ? `
-                        <div><strong>Participantes:</strong></div>
-                        <div>${esc(act.participantes)}</div>
-                    ` : ''}
-                </div>
-                ${act.observaciones ? `
-                    <div style="margin-top:12px;padding:10px;background:var(--gantt-bg);border-radius:4px;">
-                        <strong>Observaciones:</strong>
-                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.observaciones)}</div>
-                    </div>
-                ` : ''}
-                ${act.resultados ? `
-                    <div style="margin-top:10px;padding:10px;background:#E8F5E9;border-radius:4px;border-left:4px solid var(--success);">
-                        <strong>✅ Resultados / Acuerdos:</strong>
-                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.resultados)}</div>
-                    </div>
-                ` : ''}
-            </div>
-            <div class="modal-foot">
-                <button class="btn btn-ghost" id="m-close-btn">Cerrar</button>
-                <button class="btn btn-primary" data-edit-act="${act.id}">✏️ Editar</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    
-    const closeModal = () => {
-        if (overlay && overlay.parentNode) overlay.remove();
-    };
-    
-    overlay.querySelector('#m-close').onclick = closeModal;
-    overlay.querySelector('#m-close-btn').onclick = closeModal;
-    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
-    
-    overlay.querySelector('[data-edit-act]').onclick = () => {
-        closeModal();
-        openActModal(act);
-    };
+    try {
+        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
+        if (pagoIndex === -1) {
+            toast('⚠️ No se encontró el pago.');
+            return;
+        }
+        
+        const pagoEliminado = S.pagos[pagoIndex];
+        const montoEliminado = Number(pagoEliminado.montoPagado || 0);
+        
+        let pagoPrincipal = null;
+        let pagoPrincipalIndex = -1;
+        
+        if (pagoEliminado.cotizacionId) {
+            pagoPrincipalIndex = S.pagos.findIndex(p => 
+                p.cotizacionId === pagoEliminado.cotizacionId && 
+                p.id !== pagoId &&
+                Number(p.monto) > 0
+            );
+            if (pagoPrincipalIndex !== -1) {
+                pagoPrincipal = S.pagos[pagoPrincipalIndex];
+            }
+        }
+        
+        S.pagos.splice(pagoIndex, 1);
+        
+        if (pagoPrincipal && pagoPrincipalIndex !== -1) {
+            const nuevoMontoPagado = Math.max(0, (Number(pagoPrincipal.montoPagado || 0) - montoEliminado));
+            pagoPrincipal.montoPagado = nuevoMontoPagado;
+            const notaEliminacion = `❌ Pago de ${bs(montoEliminado)} eliminado (${fmtDate(new Date().toISOString())})`;
+            pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaEliminacion : notaEliminacion;
+            S.pagos[pagoPrincipalIndex] = pagoPrincipal;
+        }
+        
+        await savePagos(S.user?.uid);
+        
+        if (S.expandedPagoId === pagoEliminado.cotizacionId || S.expandedPagoId === pagoId) {
+            const principal = S.pagos.find(p => 
+                p.cotizacionId === pagoEliminado.cotizacionId && 
+                Number(p.monto) > 0
+            );
+            S.expandedPagoId = principal ? principal.id : null;
+        }
+        
+        toast('✅ Pago eliminado correctamente.');
+        render();
+    } catch (error) {
+        console.error('Error al eliminar pago:', error);
+        toast('❌ Error al eliminar el pago.');
+    }
 }
+
+// ---- FUNCIÓN PARA ELIMINAR LA DEUDA PRINCIPAL ----
+async function eliminarPagoPrincipal(pagoId) {
+    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar esta deuda y todos sus pagos asociados?\n\nEsta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
+        if (pagoIndex === -1) {
+            toast('⚠️ No se encontró la deuda.');
+            return;
+        }
+        
+        const pagoEliminado = S.pagos[pagoIndex];
+        const pagosAsociados = S.pagos.filter(p => p.cotizacionId === pagoEliminado.cotizacionId && p.id !== pagoId);
+        const idsAEliminar = pagosAsociados.map(p => p.id);
+        
+        S.pagos = S.pagos.filter(p => p.id !== pagoId && !idsAEliminar.includes(p.id));
+        await savePagos(S.user?.uid);
+        
+        toast('✅ Deuda y pagos asociados eliminados correctamente.');
+        S.expandedPagoId = null;
+        render();
+    } catch (error) {
+        console.error('Error al eliminar deuda:', error);
+        toast('❌ Error al eliminar la deuda.');
+    }
+}
+
+// ---- EXPORTAR FUNCIONES PARA USO GLOBAL ----
+window.abrirCotizacion = abrirCotizacion;
+window.togglePagoDetalle = togglePagoDetalle;
+window.openRegisterPagoModalFromDetalle = openRegisterPagoModalFromDetalle;
+window.eliminarPagoHistorial = eliminarPagoHistorial;
+window.eliminarPagoPrincipal = eliminarPagoPrincipal;
+window.verActividadDetalle = verActividadDetalle;
