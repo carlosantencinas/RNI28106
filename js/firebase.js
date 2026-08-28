@@ -57,6 +57,10 @@ async function cloudSet(userId, key, valueStr) {
 // ============================================================
 // FUNCIONES DE GUARDADO (definidas ANTES de loadData)
 // ============================================================
+// En firebase.js, agregar:
+async function saveDocumentos(userId) { 
+    await cloudSet(userId || S.user?.uid, 'documentos', JSON.stringify(S.documentos)); 
+}
 
 async function saveCotizaciones(userId) { 
     await cloudSet(userId || S.user?.uid, 'cotizaciones', JSON.stringify(S.cotizaciones)); 
@@ -115,6 +119,11 @@ async function loadData(userId) {
     const a = await cloudGet(userId, 'actividades');
     S.actividades = a ? JSON.parse(a) : null;
 } catch (e) { S.actividades = null; }
+
+    try {
+    const d = await cloudGet(userId, 'documentos');
+    S.documentos = d ? JSON.parse(d) : null;
+} catch (e) { S.documentos = null; }
 
 
     try {
@@ -191,7 +200,8 @@ if (S.actividades === null) { S.actividades = []; await saveActividades(userId);
         S.referencias = [...DEFAULT_REFERENCIAS];
         await saveReferencias(userId);
     }
-    
+    if (S.documentos === null) { S.documentos = []; await saveDocumentos(userId); }
+
     if (S.config.logo) {
         document.getElementById('brand-stamp').innerHTML = `<img src="${S.config.logo}" alt="logo">`;
     }
