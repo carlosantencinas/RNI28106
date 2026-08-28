@@ -485,7 +485,270 @@ function viewCotizaciones() {
     </div>`;
 }
 
-// ---- PAGOS POR COBRAR ----
+// ============================================================
+// VIEW - ADMINISTRATIVO (Nuevo apartado)
+// ============================================================
+
+function viewAdministrativo() {
+    // ========== DATOS FINANCIEROS ==========
+    const costoActividades = typeof obtenerCostoTotalCobrado === 'function' ? obtenerCostoTotalCobrado() : 0;
+    const detalleCostos = typeof obtenerDetalleCostosPorProyecto === 'function' ? obtenerDetalleCostosPorProyecto() : {};
+    
+    const pagosPendientes = S.pagos.filter(p => {
+        const saldo = Number(p.monto) - Number(p.montoPagado || 0);
+        return saldo > 0.01;
+    });
+    
+    const pagosCerrados = S.pagos.filter(p => {
+        const saldo = Number(p.monto) - Number(p.montoPagado || 0);
+        return saldo <= 0.01 && Number(p.monto) > 0;
+    });
+    
+    const totalDeuda = pagosPendientes.reduce((s, p) => s + (Number(p.monto) - Number(p.montoPagado || 0)), 0);
+    const totalCobrado = S.pagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
+    const totalFacturado = S.pagos.reduce((s, p) => s + Number(p.monto || 0), 0);
+    
+    // ========== DOCUMENTOS ==========
+    const docs = S.documentos || [];
+    const tiposDoc = Object.keys(TIPOS_DOCUMENTOS);
+    
+    const hoy = new Date().toISOString().slice(0, 10);
+    const docsVigentes = S.documentos.filter(d => !d.fechaVencimiento || d.fechaVencimiento >= hoy);
+    const docsVencidos = S.documentos.filter(d => d.fechaVencimiento && d.fechaVencimiento < hoy);
+    const docsFiltrados = applyDocFiltersAndSort(S.documentos || []);
+
+    return `
+    <div class="page-head">
+        <div>
+            <p class="eyebrow">Gestión</p>
+            <h1>Administrativo</h1>
+            <p>Panel financiero y documentos de la empresa.</p>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn-primary" id="btn-new-doc">📄 + Nuevo documento</button>
+            <button class="btn btn-primary" id="btn-new-pago">${ICONS.plus} Nuevo registro de pago</button>
+        </div>
+    </div>
+
+    <!-- ========== KPI FINANCIEROS ========== -->
+    <div class="kpi-grid">
+        <div class="kpi danger"><div class="label">💰 Deuda total</div><div class="val">${bs(totalDeuda)}</div><div class="sub">${pagosPendientes.length} pagos pendientes</div></div>
+        <div class="kpi success"><div class="label">✅ Cobrado a la fecha</div><div class="val">${bs(totalCobrado)}</div><div class="sub">${S.pagos.length} registros</div></div>
+        <div class="kpi accent"><div class="label">📊 Facturado total</div><div class="val">${bs(totalFacturado)}</div><div class="sub">${S.pagos.length} facturas</div></div>
+        ${costoActividades > 0 ? `
+            <div class="kpi accent"><div class="label">📋 Costo de actividades</div><div class="val">${bs(costoActividades)}</div><div class="sub">${Object.keys(detalleCostos).length} proyectos</div></div>
+        ` : ''}
+        <div class="kpi"><div class="label">📄 Documentos</div><div class="val">${S.documentos.length}</div><div class="sub">${docsVigentes.length} vigentes · ${docsVencidos.length} vencidos</div></div>
+    </div>
+
+    <!-- ========== SECCIÓN: DOCUMENTOS DE LA EMPRESA ========== -->
+    <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-h">
+            <h3>📄 Documentos de la empresa</h3>
+            <span style="font-size:12px;color:var(--text-soft);">${docsVigentes.length} vigentes · ${docsVencidos.length} vencidos</span>
+        </div>
+        <div class="panel-body">
+            <div class="filter-bar doc-filter-bar">
+                <label>🔍 Filtros:</label>
+                <select id="doc-filter-tipo">
+                    <option value="">Todos</option>
+                    ${Object.entries(TIPOS_DOCUMENTOS).map(([key, val]) => 
+                        `<option value="${key}" ${S.docFilters.tipo === key ? 'selected' : ''}>${val.label}</option>`
+                    ).join('')}
+                </select>
+                <select id="doc-filter-vigente">
+                    <option value="">Todos</option>
+                    <option value="vigente" ${S.docFilters.vigente === 'vigente' ? 'selected' : ''}>✅ Vigentes</option>
+                    <option value="vencido" ${S.docFilters.vigente === 'vencido' ? 'selected' : ''}>❌ Vencidos</option>
+                </select>
+                <button class="btn btn-sm btn-ghost" id="doc-filter-apply">Aplicar</button>
+                <span class="filter-clear" id="doc-filter-clear">Limpiar</span>
+            </div>
+            
+            ${docsFiltrados.length ? `
+            <div class="table-wrap"><table>
+                <thead>
+                    <tr>
+                        <th onclick="toggleDocSort('tipo')" class="${S.docSort.column === 'tipo' ? 'active' : ''}">Tipo <span class="sort-icon">${S.docSort.column === 'tipo' ? (S.docSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="toggleDocSort('nombre')" class="${S.docSort.column === 'nombre' ? 'active' : ''}">Nombre <span class="sort-icon">${S.docSort.column === 'nombre' ? (S.docSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="toggleDocSort('numero')" class="${S.docSort.column === 'numero' ? 'active' : ''}">Número <span class="sort-icon">${S.docSort.column === 'numero' ? (S.docSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="toggleDocSort('fechaEmision')" class="${S.docSort.column === 'fechaEmision' ? 'active' : ''}">Emisión <span class="sort-icon">${S.docSort.column === 'fechaEmision' ? (S.docSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="toggleDocSort('fechaVencimiento')" class="${S.docSort.column === 'fechaVencimiento' ? 'active' : ''}">Vencimiento <span class="sort-icon">${S.docSort.column === 'fechaVencimiento' ? (S.docSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th>Estado</th>
+                        <th>Archivo</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${docsFiltrados.map(d => {
+                        const tipoInfo = TIPOS_DOCUMENTOS[d.tipo] || TIPOS_DOCUMENTOS.otro;
+                        const estaVigente = !d.fechaVencimiento || d.fechaVencimiento >= hoy;
+                        const diasRestantes = d.fechaVencimiento ? Math.ceil((new Date(d.fechaVencimiento + 'T00:00:00') - new Date()) / (1000 * 60 * 60 * 24)) : null;
+                        let estadoColor = 'var(--success)';
+                        let estadoTexto = '✅ Vigente';
+                        if (d.fechaVencimiento && d.fechaVencimiento < hoy) {
+                            estadoColor = 'var(--danger)';
+                            estadoTexto = '❌ Vencido';
+                        } else if (diasRestantes !== null && diasRestantes <= 30) {
+                            estadoColor = 'var(--warning)';
+                            estadoTexto = `⚠️ Vence en ${diasRestantes} días`;
+                        }
+                        return `<tr>
+                            <td><span style="color:${tipoInfo.color};">${tipoInfo.icon} ${tipoInfo.label}</span></td>
+                            <td style="font-weight:500;">${esc(d.nombre)}</td>
+                            <td>${esc(d.numero||'—')}</td>
+                            <td class="tnum" style="white-space:nowrap;">${fmtDate(d.fechaEmision)}</td>
+                            <td class="tnum" style="white-space:nowrap;color:${d.fechaVencimiento && d.fechaVencimiento < hoy ? 'var(--danger)' : 'var(--text)'}">${fmtDate(d.fechaVencimiento)}</td>
+                            <td><span style="color:${estadoColor};font-weight:600;">${estadoTexto}</span></td>
+                            <td>
+                                ${d.archivo ? `<button class="iconbtn" title="Ver archivo" data-ver-doc="${d.id}">📄</button>` : '—'}
+                            </td>
+                            <td>
+                                <div class="rowactions">
+                                    <button class="iconbtn" title="Editar" data-edit-doc="${d.id}">${ICONS.edit}</button>
+                                    <button class="iconbtn" title="Eliminar" data-del-doc="${d.id}">${ICONS.trash}</button>
+                                </div>
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table></div>` : `
+            <div class="empty" style="padding:30px;">
+                <div style="font-size:40px;margin-bottom:10px;">📄</div>
+                <div>No hay documentos registrados.</div>
+                <div style="font-size:13px;color:var(--text-soft);margin-top:4px;">Sube tus documentos SEPREC, NIT, RNI, etc.</div>
+                <button class="btn btn-primary btn-sm" style="margin-top:12px;" id="btn-new-doc-empty">+ Agregar documento</button>
+            </div>`}
+        </div>
+    </div>
+
+    <!-- ========== SECCIÓN: PAGOS POR COBRAR ========== -->
+    <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-h">
+            <h3>💰 Pagos por cobrar (${pagosPendientes.length})</h3>
+            <span style="font-size:12px;color:var(--text-soft);">Total: ${bs(totalDeuda)}</span>
+        </div>
+        <div class="panel-body">
+            ${pagosPendientes.length ? `
+            <div class="table-wrap"><table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th>Cliente</th>
+                        <th>Proyecto</th>
+                        <th class="tright">Monto</th>
+                        <th class="tright">Pagado</th>
+                        <th class="tright">Saldo</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${pagosPendientes.slice(0, 10).map(p => {
+                        const saldo = Number(p.monto) - Number(p.montoPagado || 0);
+                        let proyecto = '—';
+                        if (p.cotizacionId) {
+                            const cot = S.cotizaciones.find(c => c.id === p.cotizacionId);
+                            if (cot) proyecto = cot.proyecto || '—';
+                        }
+                        return `<tr>
+                            <td class="tnum" style="white-space:nowrap;">${fmtDate(p.fecha)}</td>
+                            <td>${esc(p.descripcion||'—')}</td>
+                            <td>${esc(p.cliente||'—')}</td>
+                            <td>${esc(proyecto)}</td>
+                            <td class="tright tnum">${bs(p.monto)}</td>
+                            <td class="tright tnum">${bs(p.montoPagado||0)}</td>
+                            <td class="tright tnum" style="font-weight:600;color:var(--danger);">${bs(saldo)}</td>
+                            <td><span class="stamp ${pagoEstado(p)}">${pagoEstado(p)}</span></td>
+                            <td>
+                                <div class="rowactions">
+                                    <button class="iconbtn" title="Registrar pago" data-register-pago="${p.id}">💰</button>
+                                    <button class="iconbtn" title="Editar" data-edit-pago="${p.id}">${ICONS.edit}</button>
+                                    <button class="iconbtn" title="Eliminar" data-del-pago="${p.id}">${ICONS.trash}</button>
+                                </div>
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                    ${pagosPendientes.length > 10 ? `<tr><td colspan="9" style="text-align:center;color:var(--text-soft);font-style:italic;">...y ${pagosPendientes.length - 10} pagos más</td></tr>` : ''}
+                </tbody>
+            </table></div>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-sm btn-ghost" onclick="S.view='pagos';render();">Ver todos los pagos</button>
+            </div>` : `<div style="color:var(--text-soft);font-size:13px;padding:12px 0;">🎉 No hay pagos pendientes.</div>`}
+        </div>
+    </div>
+
+    <!-- ========== SECCIÓN: COSTOS DE ACTIVIDADES ========== -->
+    ${costoActividades > 0 ? `
+    <div class="panel">
+        <div class="panel-h"><h3>📋 Costos de actividades por proyecto</h3></div>
+        <div class="panel-body">
+            ${Object.entries(detalleCostos).map(([proyecto, info]) => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+                    <div>
+                        <span style="font-weight:500;">${esc(proyecto)}</span>
+                        <span style="font-size:11px;color:var(--text-soft);margin-left:8px;">
+                            ${info.actividades.length} actividades · 
+                            ${info.gratuitas} gratuitas · 
+                            ${info.gratuitasRestantes > 0 ? `🎁 ${info.gratuitasRestantes} restantes` : '⚠️ Sin gratuitas'}
+                        </span>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-weight:600;">${bs(info.cobradas)}</div>
+                        <div style="font-size:10px;color:var(--text-soft);">Total: ${bs(info.total)}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    </div>` : ''}
+
+    <!-- ========== HISTORIAL DE PAGOS CERRADOS ========== -->
+    ${pagosCerrados.length > 0 ? `
+    <div class="panel" style="margin-top:20px;">
+        <div class="panel-h">
+            <h3 style="color:var(--success);">✅ Historial de pagos cerrados (${pagosCerrados.length})</h3>
+            <span style="font-size:12px;color:var(--text-soft);">Total: ${bs(pagosCerrados.reduce((s, p) => s + Number(p.monto), 0))}</span>
+        </div>
+        <div class="panel-body">
+            <div class="table-wrap"><table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th>Cliente</th>
+                        <th>Proyecto</th>
+                        <th class="tright">Monto</th>
+                        <th class="tright">Pagado</th>
+                        <th>Método</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${pagosCerrados.slice(0, 10).map(p => {
+                        let proyecto = '—';
+                        if (p.cotizacionId) {
+                            const cot = S.cotizaciones.find(c => c.id === p.cotizacionId);
+                            if (cot) proyecto = cot.proyecto || '—';
+                        }
+                        return `<tr style="color:var(--text-soft);">
+                            <td class="tnum" style="white-space:nowrap;">${fmtDate(p.fecha)}</td>
+                            <td>${esc(p.descripcion||'—')}</td>
+                            <td>${esc(p.cliente||'—')}</td>
+                            <td>${esc(proyecto)}</td>
+                            <td class="tright tnum">${bs(p.monto)}</td>
+                            <td class="tright tnum" style="color:var(--success);">${bs(p.montoPagado||0)}</td>
+                            <td>${p.metodoPago ? `<span class="metodo-pago-badge ${p.metodoPago}" style="font-size:9px;">${metodoPagoLabel(p.metodoPago)}</span>` : '—'}</td>
+                        </tr>`;
+                    }).join('')}
+                    ${pagosCerrados.length > 10 ? `<tr><td colspan="7" style="text-align:center;color:var(--text-soft);font-style:italic;">...y ${pagosCerrados.length - 10} pagos más</td></tr>` : ''}
+                </tbody>
+            </table></div>
+        </div>
+    </div>` : ''}
+    `;
+}
+
+// ---- PAGOS POR COBRAR (vista detallada) ----
 function viewPagos() {
     const costoActividades = typeof obtenerCostoTotalCobrado === 'function' ? obtenerCostoTotalCobrado() : 0;
     const detalleCostos = typeof obtenerDetalleCostosPorProyecto === 'function' ? obtenerDetalleCostosPorProyecto() : {};
@@ -1239,7 +1502,7 @@ function viewActividades() {
                             <td style="font-size:12px;color:var(--text-soft);">${esc(a.ubicacion||'—')}</td>
                             <td>
                                 <div class="rowactions">
-                                    <button class="iconbtn" title="Ver detalle" onclick="verActividadDetalle('${a.id}')">📋</button>
+                                    <button class="iconbtn" title="Ver detalle" data-ver-act="${a.id}">📋</button>
                                     <button class="iconbtn" title="Editar" data-edit-act="${a.id}">${ICONS.edit}</button>
                                     <button class="iconbtn" title="Eliminar" data-del-act="${a.id}">${ICONS.trash}</button>
                                 </div>
@@ -1346,3 +1609,4 @@ window.openRegisterPagoModalFromDetalle = openRegisterPagoModalFromDetalle;
 window.eliminarPagoHistorial = eliminarPagoHistorial;
 window.eliminarPagoPrincipal = eliminarPagoPrincipal;
 window.verActividadDetalle = verActividadDetalle;
+window.viewAdministrativo = viewAdministrativo;
