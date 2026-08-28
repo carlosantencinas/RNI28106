@@ -1449,6 +1449,7 @@ function viewConfig() {
 }
 
 // ---- ACTIVIDADES ----
+// ---- ACTIVIDADES ----
 function viewActividades() {
     const rows = applyActFiltersAndSort(S.actividades || []);
     const clientesUnicos = [...new Set(S.actividades.map(a => a.cliente).filter(Boolean))].sort();
