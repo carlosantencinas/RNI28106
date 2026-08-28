@@ -501,25 +501,30 @@ function viewCotizaciones() {
 // ---- PAGOS POR COBRAR (con checkboxes y proyecto) ----
 // ---- PAGOS POR COBRAR (con checkboxes, proyecto y selector de columnas) ----
 // ---- PAGOS POR COBRAR (con sub-pestaña de detalle y pagos parciales) ----
+// ---- PAGOS POR COBRAR (CON HISTORIAL DE CERRADOS) ----
 function viewPagos() {
-    const rows = applyPagoFiltersAndSort(S.pagos || []);
+    // Pagos pendientes (con saldo > 0)
+    const rows = applyPagoFiltersAndSort(S.pagos.filter(p => {
+        const saldo = Number(p.monto) - Number(p.montoPagado || 0);
+        return saldo > 0.01;
+    }) || []);
+    
+    // Pagos cerrados (saldo <= 0)
+    const pagosCerrados = S.pagos.filter(p => {
+        const saldo = Number(p.monto) - Number(p.montoPagado || 0);
+        return saldo <= 0.01 && Number(p.monto) > 0;
+    });
+    
     const estados = ['pendiente', 'parcial', 'pagado'];
     const clientesUnicos = [...new Set(S.pagos.map(p => p.cliente).filter(Boolean))].sort();
 
-    // Verificar si todos los registros visibles están seleccionados
+    // Verificar selección
     const allVisibleSelected = rows.length > 0 && rows.every(p => S.selectedDebts.has(p.id));
     const selectedCount = rows.filter(p => S.selectedDebts.has(p.id)).length;
-
-    // Contar deudas con saldo pendiente entre los seleccionados
     const validSelected = rows
         .filter(p => S.selectedDebts.has(p.id))
         .filter(p => (Number(p.monto) - Number(p.montoPagado || 0)) > 0.01);
     const validCount = validSelected.length;
-
-    // Estado para la sub-pestaña expandida
-    if (typeof S.expandedPagoId === 'undefined') {
-        S.expandedPagoId = null;
-    }
 
     let tableHtml = '';
     if (rows.length) {
@@ -560,29 +565,21 @@ function viewPagos() {
                     ${rows.map(p => {
                         const saldo = Number(p.monto) - Number(p.montoPagado || 0);
                         const isSelected = S.selectedDebts.has(p.id);
-                        const isExpanded = S.expandedPagoId === p.id;
-                        // Obtener el proyecto de la cotización relacionada
                         let proyecto = '—';
                         let cot = null;
                         if (p.cotizacionId) {
                             cot = S.cotizaciones.find(c => c.id === p.cotizacionId);
                             if (cot) proyecto = cot.proyecto || '—';
                         }
-
-                        // Obtener el historial de pagos para esta deuda
-                        const historialPagos = S.pagos.filter(pago => 
-                            pago.cotizacionId === p.cotizacionId && pago.id !== p.id
-                        );
-
                         return `<tr>
-                            <td style="text-align:center;vertical-align:middle;">
+                            <td style="text-align:center;">
                                 <input type="checkbox" class="debt-checkbox" data-id="${p.id}" ${isSelected ? 'checked' : ''}>
                             </td>
                             <td class="tnum" style="white-space:nowrap;">${fmtDate(p.fecha)}</td>
                             <td style="font-weight:500;">
                                 ${esc(p.descripcion||'—')}
                                 <button class="iconbtn" style="margin-left:6px;padding:2px 6px;font-size:11px;" onclick="togglePagoDetalle('${p.id}')" title="Ver detalle">
-                                    ${isExpanded ? '▲' : '▼'}
+                                    ${S.expandedPagoId === p.id ? '▲' : '▼'}
                                 </button>
                             </td>
                             <td>${esc(p.cliente||'—')}</td>
@@ -603,11 +600,11 @@ function viewPagos() {
                                 </div>
                             </td>
                         </tr>
-                        ${isExpanded ? `
+                        ${S.expandedPagoId === p.id ? `
                         <tr>
                             <td colspan="11" style="padding:0;background:var(--surface-hover);">
                                 <div style="padding:16px 20px;border-top:2px solid var(--primary);border-bottom:1px solid var(--border);">
-                                    ${renderPagoDetalle(p, cot, historialPagos)}
+                                    ${renderPagoDetalle(p, cot, [])}
                                 </div>
                             </td>
                         </tr>
@@ -616,34 +613,13 @@ function viewPagos() {
                 </tbody>
             </table></div>`;
     } else {
-        tableHtml = `<div class="empty">${ICONS.empty}<div>Sin pagos que coincidan con los filtros.</div></div>`;
+        tableHtml = `<div class="empty">${ICONS.empty}<div>🎉 No hay pagos pendientes.</div></div>`;
     }
 
-    return `
-    <div class="page-head">
-        <div><p class="eyebrow">Cobros</p><h1>Pagos por cobrar</h1><p>Registro de pagos con fechas, métodos y comprobantes. Selecciona deudas para exportar.</p></div>
-        <div class="page-actions">
-            <button class="btn btn-primary" id="btn-new-pago">${ICONS.plus} Nuevo registro</button>
-        </div>
-    </div>
-    <div class="panel">
-        <div class="panel-body">
-            <div class="filter-bar pago-filter-bar">
-                <label>🔍 Filtros:</label>
-                <input type="date" id="pago-filter-fecha" value="${S.pagoFilters.fecha}">
-                <input id="pago-filter-cliente" list="clientes-pago-list" placeholder="Cliente..." value="${S.pagoFilters.cliente}">
-                <datalist id="clientes-pago-list">${clientesUnicos.map(c => `<option value="${c}">`).join('')}</datalist>
-                <select id="pago-filter-estado">
-                    <option value="">Todos</option>
-                    ${estados.map(e => `<option value="${e}" ${S.pagoFilters.estado === e ? 'selected' : ''}>${e}</option>`).join('')}
-                </select>
-                <button class="btn btn-sm btn-ghost" id="pago-filter-apply">Aplicar</button>
-                <span class="filter-clear" id="pago-filter-clear">Limpiar</span>
-            </div>
-            ${tableHtml}
-        </div>
-    </div>`;
-}
+    // ========== HISTORIAL DE PAGOS CERRADOS ==========
+    let historialHtml = '';
+    if (pagosCerrados.length > 0) {
+        const cerradosOrdenados = pagosCerrados.sort((a, b) => (b.fecha || '').
 
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO ----
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
