@@ -13,12 +13,22 @@ function itemRowHtml(it) {
     </div>`;
 }
 
+// ---- ITEM ROW CON PLAZO ----
+function itemRowHtmlConPlazo(it) {
+    return `<div class="item-row" data-item="${it.id}" style="display:grid;grid-template-columns:1fr 80px 70px 50px 70px 30px;gap:8px;align-items:start;margin-bottom:8px;">
+        <textarea class="it-actividad" placeholder="Descripción" style="min-height:36px;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-family:'Inter',sans-serif;">${esc(it.actividad||'')}</textarea>
+        <input class="it-pu" type="number" step="0.01" placeholder="P.U." value="${it.pu||0}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">
+        <input class="it-unidad" placeholder="Unidad" value="${attr(it.unidad||'')}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">
+        <input class="it-cantidad" type="number" step="1" placeholder="Cant." value="${it.cantidad||1}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">
+        <input class="it-plazo" type="number" step="1" placeholder="Plazo" value="${it.plazo||0}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;width:60px;">
+        <button type="button" class="item-remove" style="background:none;border:none;color:#C0392B;cursor:pointer;font-size:18px;padding:2px 4px;">×</button>
+    </div>`;
+}
+
 // ============================================================
 // MODAL - COTIZACIONES
 // ============================================================
 
-// ---- MODAL COTIZACIONES (CON PLAZO POR ÍTEM) ----
-// ---- MODAL COTIZACIONES (CON CABECERA DE ÍTEMS) ----
 function openCotModal(cot) {
     const isNew = !cot;
     const c = cot ? JSON.parse(JSON.stringify(cot)) : {
@@ -35,7 +45,6 @@ function openCotModal(cot) {
         estado: 'borrador'
     };
 
-    // Calcular plazo total si existe
     let plazoTotal = 0;
     if (c.items && c.items.length > 0) {
         plazoTotal = c.items.reduce((sum, item) => sum + (Number(item.plazo) || 0), 0);
@@ -70,7 +79,6 @@ function openCotModal(cot) {
                     </div>
                 </div>
                 
-                <!-- ========== CABECERA DE ÍTEMS ========== -->
                 <div style="display:grid;grid-template-columns:1fr 80px 70px 50px 70px 30px;gap:8px;align-items:center;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-soft);font-weight:600;padding:0 4px;">
                     <span>Actividad</span>
                     <span style="text-align:right;">P.U. [Bs]</span>
@@ -79,7 +87,6 @@ function openCotModal(cot) {
                     <span style="text-align:center;">Plazo</span>
                     <span style="text-align:center;"></span>
                 </div>
-                <!-- ======================================== -->
                 
                 <div class="items-block" id="items-block">
                     ${c.items.map(it => itemRowHtmlConPlazo(it)).join('')}
@@ -113,9 +120,6 @@ function openCotModal(cot) {
     `;
     document.body.appendChild(overlay);
 
-    // ============================================================
-    // FUNCIONES DE RECÁLCULO
-    // ============================================================
     function recalc() {
         const rows = overlay.querySelectorAll('.item-row');
         let subtotal = 0;
@@ -132,17 +136,10 @@ function openCotModal(cot) {
         const desc = Number(overlay.querySelector('#f-descuento').value) || 0;
         overlay.querySelector('#f-subtotal-view').textContent = bs(subtotal);
         overlay.querySelector('#f-total-view').textContent = bs(subtotal - desc);
-        
-        // Actualizar plazo total
         overlay.querySelector('#f-plazo-total').value = plazoTotal;
         overlay.querySelector('#f-plazo-final').textContent = plazoTotal + ' días';
     }
 
-    // ============================================================
-    // EVENTOS
-    // ============================================================
-    
-    // Agregar ítem
     overlay.querySelector('#btn-add-item').onclick = () => {
         const block = overlay.querySelector('#items-block');
         block.insertAdjacentHTML('beforeend', itemRowHtmlConPlazo({ 
@@ -156,7 +153,6 @@ function openCotModal(cot) {
         recalc();
     };
 
-    // Eliminar ítem
     overlay.querySelector('#items-block').addEventListener('click', e => {
         if (e.target.classList.contains('item-remove')) {
             const row = e.target.closest('.item-row');
@@ -167,21 +163,16 @@ function openCotModal(cot) {
         }
     });
 
-    // Recalcular en cada cambio
     overlay.querySelectorAll('input, textarea, select').forEach(el => {
         if (el.id !== 'f-plazo-total' && el.id !== 'f-plazo-final') {
             el.addEventListener('input', recalc);
         }
         if (el.id === 'f-plazo-total') {
-            // No permitir edición manual
             el.addEventListener('keydown', e => e.preventDefault());
         }
     });
     overlay.querySelector('#f-descuento').addEventListener('input', recalc);
 
-    // ============================================================
-    // CERRAR MODAL
-    // ============================================================
     const closeModal = () => {
         if (overlay && overlay.parentNode) overlay.remove();
     };
@@ -190,9 +181,6 @@ function openCotModal(cot) {
     overlay.querySelector('#m-cancel').onclick = closeModal;
     overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
 
-    // ============================================================
-    // GUARDAR
-    // ============================================================
     overlay.querySelector('#m-save').onclick = async () => {
         const items = [...overlay.querySelectorAll('.item-row')].map(r => ({
             id: r.dataset.item,
@@ -200,13 +188,12 @@ function openCotModal(cot) {
             pu: Number(r.querySelector('.it-pu').value) || 0,
             unidad: r.querySelector('.it-unidad').value.trim(),
             cantidad: Number(r.querySelector('.it-cantidad').value) || 0,
-            plazo: Number(r.querySelector('.it-plazo').value) || 0 // <-- GUARDAR PLAZO
+            plazo: Number(r.querySelector('.it-plazo').value) || 0
         }));
         
         const titulo = overlay.querySelector('#f-titulo').value.trim();
         if (!titulo) { toast('Ponle un título a la cotización.'); return; }
 
-        // Calcular plazo total
         const plazoTotal = items.reduce((sum, item) => sum + (Number(item.plazo) || 0), 0);
 
         const nuevo = {
@@ -217,7 +204,7 @@ function openCotModal(cot) {
             titulo,
             items,
             descuento: Number(overlay.querySelector('#f-descuento').value) || 0,
-            plazoDias: plazoTotal, // <-- GUARDAR PLAZO TOTAL
+            plazoDias: plazoTotal,
             entregables: overlay.querySelector('#f-entregables').value.trim(),
             nota: overlay.querySelector('#f-nota').value.trim(),
             estado: overlay.querySelector('#f-estado').value
@@ -243,6 +230,7 @@ function openCotModal(cot) {
         toast(isNew ? '✅ Cotización creada.' : '✅ Cotización actualizada.');
     };
 }
+
 // ============================================================
 // MODAL - PAGOS
 // ============================================================
@@ -384,14 +372,7 @@ function openPagoModal(pago) {
 // REGISTRAR PAGO PARCIAL
 // ============================================================
 
-// ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
-// ---- REGISTRAR PAGO PARCIAL (MEJORADO) ----
-// ---- REGISTRAR PAGO PARCIAL (MEJORADO - CON ASOCIACIÓN CORRECTA) ----
-// ---- REGISTRAR PAGO PARCIAL (CORREGIDO - CREA REGISTROS SEPARADOS) ----
-
-// ---- REGISTRAR PAGO PARCIAL (CORREGIDO - MONTO ADICIONAL) ----
 function openRegisterPagoModal(pago) {
-    // Verificar que el pago existe
     if (!pago) {
         toast('⚠️ No se encontró el pago.');
         return;
@@ -486,7 +467,6 @@ function openRegisterPagoModal(pago) {
     const inputNuevo = overlay.querySelector('#rp-pagado-nuevo');
     const saldoRestanteSpan = overlay.querySelector('#rp-saldo-restante');
     
-    // Actualizar saldo restante en tiempo real
     inputNuevo.addEventListener('input', () => {
         const montoAPagar = Number(inputNuevo.value) || 0;
         const saldoRestante = Math.max(0, saldoActual - montoAPagar);
@@ -518,16 +498,13 @@ function openRegisterPagoModal(pago) {
             return;
         }
 
-        // ============================================================
-        // CREAR NUEVO REGISTRO DE PAGO CON EL MONTO ADICIONAL
-        // ============================================================
         const nuevoPago = {
             id: uid(),
             cotizacionId: pago.cotizacionId || '',
             cliente: pago.cliente,
             descripcion: `Pago parcial - ${pago.descripcion || 'Deuda'}`,
-            monto: pago.monto, // Monto total de referencia
-            montoPagado: montoAPagar, // <-- SOLO EL MONTO ADICIONAL
+            monto: pago.monto,
+            montoPagado: montoAPagar,
             fecha: fechaPago || new Date().toISOString().slice(0, 10),
             fechaCompromiso: fechaPago || new Date().toISOString().slice(0, 10),
             notas: notasAdicionales || '',
@@ -535,35 +512,28 @@ function openRegisterPagoModal(pago) {
             comprobante: comprobante || ''
         };
 
-        console.log('✅ Nuevo pago registrado (monto adicional):', nuevoPago);
-
-        // 1. AGREGAR EL NUEVO PAGO AL ARRAY
         S.pagos.push(nuevoPago);
         
-        // 2. ACTUALIZAR EL MONTO PAGADO DEL PAGO PRINCIPAL (ACUMULAR)
         const pagoPrincipalIndex = S.pagos.findIndex(p => p.id === pago.id);
         if (pagoPrincipalIndex !== -1) {
             const pagoPrincipal = S.pagos[pagoPrincipalIndex];
             const nuevoTotalPagado = (Number(pagoPrincipal.montoPagado || 0) + montoAPagar);
             pagoPrincipal.montoPagado = nuevoTotalPagado;
             
-            // Agregar nota sobre el pago
             const notaPago = `💰 Pago adicional de ${bs(montoAPagar)} registrado el ${fmtDate(nuevoPago.fecha)}${metodo ? ` (${metodoPagoLabel(metodo)})` : ''}${comprobante ? ` #${comprobante}` : ''}`;
             pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaPago : notaPago;
             
             S.pagos[pagoPrincipalIndex] = pagoPrincipal;
-            console.log('✅ Pago principal actualizado (nuevo total):', pagoPrincipal);
         }
 
-        // 3. GUARDAR EN FIREBASE
         await savePagos(S.user?.uid);
-        
         closeModal();
         S.expandedPagoId = pago.id;
         render();
         toast(`✅ Pago de ${bs(montoAPagar)} registrado exitosamente. Saldo restante: ${bs(saldoActual - montoAPagar)}`);
     };
 }
+
 // ============================================================
 // REGISTRAR PAGO DESDE COTIZACIÓN
 // ============================================================
@@ -721,6 +691,188 @@ function openPagoFromCotizacion(cotizacionId) {
         closeModal();
         render();
     };
+}
+
+// ============================================================
+// MODAL - DOCUMENTOS ADMINISTRATIVOS
+// ============================================================
+
+function openDocModal(doc) {
+    const isNew = !doc;
+    const d = doc ? { ...doc } : {
+        id: uid(),
+        tipo: 'seprec',
+        nombre: '',
+        numero: '',
+        fechaEmision: new Date().toISOString().slice(0, 10),
+        fechaVencimiento: '',
+        archivo: null,
+        nombreArchivo: '',
+        observaciones: ''
+    };
+
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:640px;">
+            <div class="modal-h">
+                <h3>${isNew ? '📄 Nuevo documento' : '✏️ Editar documento'}</h3>
+                <button class="close" id="m-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="row2">
+                    <div class="field">
+                        <label>Tipo de documento</label>
+                        <select id="doc-tipo">
+                            ${Object.entries(TIPOS_DOCUMENTOS).map(([key, val]) => 
+                                `<option value="${key}" ${d.tipo === key ? 'selected' : ''}>${val.label}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Nombre del documento</label>
+                        <input id="doc-nombre" value="${attr(d.nombre)}" placeholder="Ej. Certificado SEPREC 2024">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Número de registro</label>
+                    <input id="doc-numero" value="${attr(d.numero)}" placeholder="Ej. 123456789">
+                </div>
+                <div class="row2">
+                    <div class="field">
+                        <label>Fecha de emisión</label>
+                        <input type="date" id="doc-fecha-emision" value="${d.fechaEmision}">
+                    </div>
+                    <div class="field">
+                        <label>Fecha de vencimiento</label>
+                        <input type="date" id="doc-fecha-vencimiento" value="${d.fechaVencimiento}">
+                        <div style="font-size:11px;color:var(--text-soft);margin-top:2px;">Dejar en blanco si no tiene vencimiento</div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Archivo (PDF)</label>
+                    <input type="file" id="doc-archivo" accept=".pdf,.jpg,.jpeg,.png">
+                    ${d.nombreArchivo ? `
+                        <div style="margin-top:4px;font-size:12px;color:var(--success);">
+                            📎 Archivo actual: ${esc(d.nombreArchivo)}
+                            <button class="btn btn-sm btn-danger" id="doc-remove-file" style="padding:2px 8px;margin-left:8px;">Eliminar</button>
+                        </div>
+                    ` : ''}
+                    <div style="font-size:11px;color:var(--text-soft);margin-top:4px;">Formatos permitidos: PDF, JPG, PNG (máx 5MB)</div>
+                </div>
+                <div class="field">
+                    <label>Observaciones</label>
+                    <textarea id="doc-observaciones" rows="2">${esc(d.observaciones||'')}</textarea>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
+                <button class="btn btn-primary" id="m-save">${isNew ? 'Guardar' : 'Actualizar'}</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    let archivoBase64 = d.archivo || null;
+    let nombreArchivo = d.nombreArchivo || '';
+
+    const fileInput = overlay.querySelector('#doc-archivo');
+    fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (file.size > 5 * 1024 * 1024) {
+            toast('⚠️ El archivo no puede superar los 5MB.');
+            fileInput.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            archivoBase64 = ev.target.result;
+            nombreArchivo = file.name;
+            toast('✅ Archivo cargado: ' + file.name);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const removeFileBtn = overlay.querySelector('#doc-remove-file');
+    if (removeFileBtn) {
+        removeFileBtn.onclick = () => {
+            archivoBase64 = null;
+            nombreArchivo = '';
+            fileInput.value = '';
+            toast('📎 Archivo eliminado.');
+            if (removeFileBtn.parentElement) {
+                removeFileBtn.parentElement.innerHTML = '📎 Sin archivo adjunto';
+            }
+        };
+    }
+
+    const closeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+    };
+
+    overlay.querySelector('#m-close').onclick = closeModal;
+    overlay.querySelector('#m-cancel').onclick = closeModal;
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
+
+    overlay.querySelector('#m-save').onclick = async () => {
+        const nuevo = {
+            id: d.id,
+            tipo: document.getElementById('doc-tipo').value,
+            nombre: document.getElementById('doc-nombre').value.trim(),
+            numero: document.getElementById('doc-numero').value.trim(),
+            fechaEmision: document.getElementById('doc-fecha-emision').value,
+            fechaVencimiento: document.getElementById('doc-fecha-vencimiento').value || '',
+            archivo: archivoBase64,
+            nombreArchivo: nombreArchivo,
+            observaciones: document.getElementById('doc-observaciones').value.trim()
+        };
+
+        if (!nuevo.nombre) { toast('Ingresa un nombre para el documento.'); return; }
+
+        if (isNew) S.documentos.push(nuevo);
+        else S.documentos = S.documentos.map(x => x.id === nuevo.id ? nuevo : x);
+
+        await saveDocumentos(S.user?.uid);
+        closeModal();
+        render();
+        toast(isNew ? '✅ Documento registrado.' : '✅ Documento actualizado.');
+    };
+}
+
+// ---- VER DOCUMENTO ----
+function verDocumento(docId) {
+    const doc = S.documentos.find(d => d.id === docId);
+    if (!doc) { toast('⚠️ Documento no encontrado.'); return; }
+    
+    if (!doc.archivo) {
+        toast('⚠️ Este documento no tiene archivo adjunto.');
+        return;
+    }
+    
+    const win = window.open('', '_blank');
+    if (win) {
+        win.document.write(`
+            <html>
+            <head><title>${esc(doc.nombre)}</title></head>
+            <body style="margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#f0f0f0;">
+                <div style="max-width:90%;max-height:90%;">
+                    <embed src="${doc.archivo}" type="application/pdf" width="100%" height="100%" style="min-height:80vh;">
+                    <div style="text-align:center;padding:10px;font-family:sans-serif;">
+                        <strong>${esc(doc.nombre)}</strong>
+                        ${doc.numero ? ` - N° ${esc(doc.numero)}` : ''}
+                        <br><button onclick="window.close()" style="padding:8px 20px;margin-top:8px;cursor:pointer;">Cerrar</button>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+        win.document.close();
+    } else {
+        toast('⚠️ Permite ventanas emergentes para ver el documento.');
+    }
 }
 
 // ============================================================
@@ -1003,6 +1155,250 @@ function openContModal(cont) {
         closeModal();
         render();
         toast(isNew ? '✅ Contacto registrado.' : '✅ Contacto actualizado.');
+    };
+}
+
+// ============================================================
+// MODAL - ACTIVIDADES
+// ============================================================
+
+function openActModal(act) {
+    const isNew = !act;
+    const a = act ? { ...act } : {
+        id: uid(),
+        fecha: new Date().toISOString().slice(0, 10),
+        tipo: 'reunion',
+        titulo: '',
+        cliente: '',
+        proyecto: '',
+        ubicacion: '',
+        duracion: '',
+        costo: 0,
+        participantes: '',
+        observaciones: '',
+        resultados: '',
+        gratuita: false
+    };
+
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:680px;">
+            <div class="modal-h">
+                <h3>${isNew ? '📝 Nueva actividad' : '✏️ Editar actividad'}</h3>
+                <button class="close" id="m-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="row2">
+                    <div class="field">
+                        <label>Tipo de actividad</label>
+                        <select id="act-tipo">
+                            ${Object.entries(TIPOS_ACTIVIDAD).map(([key, val]) => 
+                                `<option value="${key}" ${a.tipo === key ? 'selected' : ''}>${val.label}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Fecha</label>
+                        <input type="date" id="act-fecha" value="${a.fecha}">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Título</label>
+                    <input id="act-titulo" value="${attr(a.titulo)}" placeholder="Ej. Reunión con cliente para presentación de avance">
+                </div>
+                <div class="row2">
+                    <div class="field">
+                        <label>Cliente</label>
+                        <input id="act-cliente" list="act-clientes-list" value="${attr(a.cliente)}" placeholder="Cliente o contacto">
+                        <datalist id="act-clientes-list">
+                            ${S.clientes.map(c => `<option value="${attr(c.nombre)}">`).join('')}
+                            ${[...new Set(S.actividades.map(a => a.cliente).filter(Boolean))].map(c => `<option value="${attr(c)}">`).join('')}
+                        </datalist>
+                    </div>
+                    <div class="field">
+                        <label>Proyecto</label>
+                        <input id="act-proyecto" list="act-proyectos-list" value="${attr(a.proyecto)}" placeholder="Proyecto asociado">
+                        <datalist id="act-proyectos-list">
+                            ${[...new Set(S.clientes.flatMap(c => c.proyectos))].filter(Boolean).map(p => `<option value="${attr(p)}">`).join('')}
+                            ${[...new Set(S.actividades.map(a => a.proyecto).filter(Boolean))].map(p => `<option value="${attr(p)}">`).join('')}
+                        </datalist>
+                    </div>
+                </div>
+                <div class="row2">
+                    <div class="field">
+                        <label>Ubicación</label>
+                        <input id="act-ubicacion" value="${attr(a.ubicacion)}" placeholder="Lugar de la actividad">
+                    </div>
+                    <div class="field">
+                        <label>Duración</label>
+                        <input id="act-duracion" value="${attr(a.duracion)}" placeholder="Ej. 2 horas, 3 días">
+                    </div>
+                </div>
+                <div class="row3">
+                    <div class="field">
+                        <label>Costo [Bs]</label>
+                        <input type="number" step="0.01" id="act-costo" value="${a.costo||0}" placeholder="0.00">
+                    </div>
+                    <div class="field">
+                        <label>Participantes</label>
+                        <input id="act-participantes" value="${attr(a.participantes)}" placeholder="Nombres">
+                    </div>
+                    <div class="field" style="display:flex;align-items:center;padding-top:20px;">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="act-gratuita" ${a.gratuita ? 'checked' : ''}>
+                            <label for="act-gratuita">✅ Actividad gratuita</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Observaciones</label>
+                    <textarea id="act-observaciones" rows="2">${esc(a.observaciones||'')}</textarea>
+                </div>
+                <div class="field">
+                    <label>Resultados / Acuerdos</label>
+                    <textarea id="act-resultados" rows="2" placeholder="Resultados obtenidos, acuerdos alcanzados...">${esc(a.resultados||'')}</textarea>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
+                <button class="btn btn-primary" id="m-save">${isNew ? 'Guardar' : 'Actualizar'}</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+    };
+
+    overlay.querySelector('#m-close').onclick = closeModal;
+    overlay.querySelector('#m-cancel').onclick = closeModal;
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
+
+    overlay.querySelector('#m-save').onclick = async () => {
+        const proyecto = document.getElementById('act-proyecto').value.trim();
+        const costo = Number(document.getElementById('act-costo').value) || 0;
+        const gratuita = document.getElementById('act-gratuita').checked;
+        const tipo = document.getElementById('act-tipo').value;
+        
+        const tipoInfo = TIPOS_ACTIVIDAD[tipo];
+        let costoFinal = costo;
+        
+        if (gratuita || !tipoInfo.tieneCosto) {
+            costoFinal = 0;
+        }
+
+        const nuevo = {
+            id: a.id,
+            fecha: document.getElementById('act-fecha').value,
+            tipo: tipo,
+            titulo: document.getElementById('act-titulo').value.trim(),
+            cliente: document.getElementById('act-cliente').value.trim(),
+            proyecto: proyecto,
+            ubicacion: document.getElementById('act-ubicacion').value.trim(),
+            duracion: document.getElementById('act-duracion').value.trim(),
+            costo: costoFinal,
+            participantes: document.getElementById('act-participantes').value.trim(),
+            observaciones: document.getElementById('act-observaciones').value.trim(),
+            resultados: document.getElementById('act-resultados').value.trim(),
+            gratuita: gratuita || costoFinal === 0
+        };
+
+        if (!nuevo.titulo) { toast('Ingresa un título para la actividad.'); return; }
+
+        if (isNew) S.actividades.push(nuevo);
+        else S.actividades = S.actividades.map(x => x.id === nuevo.id ? nuevo : x);
+
+        await saveActividades(S.user?.uid);
+        closeModal();
+        render();
+        toast(isNew ? '✅ Actividad registrada.' : '✅ Actividad actualizada.');
+    };
+}
+
+// ---- DETALLE DE ACTIVIDAD ----
+function verActividadDetalle(actId) {
+    const act = S.actividades.find(a => a.id === actId);
+    if (!act) { toast('⚠️ Actividad no encontrada.'); return; }
+    
+    const tipoInfo = TIPOS_ACTIVIDAD[act.tipo] || TIPOS_ACTIVIDAD.otro;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-h">
+                <h3>${tipoInfo.icon} Detalle de actividad</h3>
+                <button class="close" id="m-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+                    <div><strong>Título:</strong></div>
+                    <div style="font-weight:600;">${esc(act.titulo)}</div>
+                    
+                    <div><strong>Tipo:</strong></div>
+                    <div><span style="color:${tipoInfo.color};">${tipoInfo.icon} ${tipoInfo.label}</span></div>
+                    
+                    <div><strong>Fecha:</strong></div>
+                    <div>${fmtDate(act.fecha)}</div>
+                    
+                    <div><strong>Cliente:</strong></div>
+                    <div>${esc(act.cliente||'—')}</div>
+                    
+                    <div><strong>Proyecto:</strong></div>
+                    <div>${esc(act.proyecto||'—')}</div>
+                    
+                    <div><strong>Ubicación:</strong></div>
+                    <div>${esc(act.ubicacion||'—')}</div>
+                    
+                    ${act.duracion ? `
+                        <div><strong>Duración:</strong></div>
+                        <div>${esc(act.duracion)}</div>
+                    ` : ''}
+                    
+                    ${act.costo ? `
+                        <div><strong>Costo:</strong></div>
+                        <div>${bs(act.costo)} ${act.gratuita ? '🎁 (Gratuita)' : ''}</div>
+                    ` : ''}
+                    
+                    ${act.participantes ? `
+                        <div><strong>Participantes:</strong></div>
+                        <div>${esc(act.participantes)}</div>
+                    ` : ''}
+                </div>
+                ${act.observaciones ? `
+                    <div style="margin-top:12px;padding:10px;background:var(--gantt-bg);border-radius:4px;">
+                        <strong>Observaciones:</strong>
+                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.observaciones)}</div>
+                    </div>
+                ` : ''}
+                ${act.resultados ? `
+                    <div style="margin-top:10px;padding:10px;background:#E8F5E9;border-radius:4px;border-left:4px solid var(--success);">
+                        <strong>✅ Resultados / Acuerdos:</strong>
+                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.resultados)}</div>
+                    </div>
+                ` : ''}
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" id="m-close-btn">Cerrar</button>
+                <button class="btn btn-primary" data-edit-act="${act.id}">✏️ Editar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    
+    const closeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+    };
+    
+    overlay.querySelector('#m-close').onclick = closeModal;
+    overlay.querySelector('#m-close-btn').onclick = closeModal;
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
+    
+    overlay.querySelector('[data-edit-act]').onclick = () => {
+        closeModal();
+        openActModal(act);
     };
 }
 
@@ -1391,253 +1787,12 @@ function exportDebts(selectedIds) {
     doc.save(fileName);
     toast(`📄 Reporte de deudas exportado (${debtsWithBalance.length} registros).`);
 }
-// ---- MODAL ACTIVIDADES ----
+
 // ============================================================
-// MODAL - ACTIVIDADES
+// EXPORTAR FUNCIONES PARA USO GLOBAL
 // ============================================================
 
-// ---- MODAL ACTIVIDADES ----
-function openActModal(act) {
-    const isNew = !act;
-    const a = act ? { ...act } : {
-        id: uid(),
-        fecha: new Date().toISOString().slice(0, 10),
-        tipo: 'reunion',
-        titulo: '',
-        cliente: '',
-        proyecto: '',
-        ubicacion: '',
-        duracion: '',
-        costo: 0,
-        participantes: '',
-        observaciones: '',
-        resultados: '',
-        gratuita: false
-    };
-
-    const overlay = document.createElement('div');
-    overlay.className = 'overlay';
-    overlay.innerHTML = `
-        <div class="modal" style="max-width:680px;">
-            <div class="modal-h">
-                <h3>${isNew ? '📝 Nueva actividad' : '✏️ Editar actividad'}</h3>
-                <button class="close" id="m-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="row2">
-                    <div class="field">
-                        <label>Tipo de actividad</label>
-                        <select id="act-tipo">
-                            ${Object.entries(TIPOS_ACTIVIDAD).map(([key, val]) => 
-                                `<option value="${key}" ${a.tipo === key ? 'selected' : ''}>${val.label}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label>Fecha</label>
-                        <input type="date" id="act-fecha" value="${a.fecha}">
-                    </div>
-                </div>
-                <div class="field">
-                    <label>Título</label>
-                    <input id="act-titulo" value="${attr(a.titulo)}" placeholder="Ej. Reunión con cliente para presentación de avance">
-                </div>
-                <div class="row2">
-                    <div class="field">
-                        <label>Cliente</label>
-                        <input id="act-cliente" list="act-clientes-list" value="${attr(a.cliente)}" placeholder="Cliente o contacto">
-                        <datalist id="act-clientes-list">
-                            ${S.clientes.map(c => `<option value="${attr(c.nombre)}">`).join('')}
-                            ${[...new Set(S.actividades.map(a => a.cliente).filter(Boolean))].map(c => `<option value="${attr(c)}">`).join('')}
-                        </datalist>
-                    </div>
-                    <div class="field">
-                        <label>Proyecto</label>
-                        <input id="act-proyecto" list="act-proyectos-list" value="${attr(a.proyecto)}" placeholder="Proyecto asociado">
-                        <datalist id="act-proyectos-list">
-                            ${[...new Set(S.clientes.flatMap(c => c.proyectos))].filter(Boolean).map(p => `<option value="${attr(p)}">`).join('')}
-                            ${[...new Set(S.actividades.map(a => a.proyecto).filter(Boolean))].map(p => `<option value="${attr(p)}">`).join('')}
-                        </datalist>
-                    </div>
-                </div>
-                <div class="row2">
-                    <div class="field">
-                        <label>Ubicación</label>
-                        <input id="act-ubicacion" value="${attr(a.ubicacion)}" placeholder="Lugar de la actividad">
-                    </div>
-                    <div class="field">
-                        <label>Duración</label>
-                        <input id="act-duracion" value="${attr(a.duracion)}" placeholder="Ej. 2 horas, 3 días">
-                    </div>
-                </div>
-                <div class="row3">
-                    <div class="field">
-                        <label>Costo [Bs]</label>
-                        <input type="number" step="0.01" id="act-costo" value="${a.costo||0}" placeholder="0.00">
-                    </div>
-                    <div class="field">
-                        <label>Participantes</label>
-                        <input id="act-participantes" value="${attr(a.participantes)}" placeholder="Nombres">
-                    </div>
-                    <div class="field" style="display:flex;align-items:center;padding-top:20px;">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="act-gratuita" ${a.gratuita ? 'checked' : ''}>
-                            <label for="act-gratuita">✅ Actividad gratuita</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="field">
-                    <label>Observaciones</label>
-                    <textarea id="act-observaciones" rows="2">${esc(a.observaciones||'')}</textarea>
-                </div>
-                <div class="field">
-                    <label>Resultados / Acuerdos</label>
-                    <textarea id="act-resultados" rows="2" placeholder="Resultados obtenidos, acuerdos alcanzados...">${esc(a.resultados||'')}</textarea>
-                </div>
-            </div>
-            <div class="modal-foot">
-                <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
-                <button class="btn btn-primary" id="m-save">${isNew ? 'Guardar' : 'Actualizar'}</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const closeModal = () => {
-        if (overlay && overlay.parentNode) overlay.remove();
-    };
-
-    overlay.querySelector('#m-close').onclick = closeModal;
-    overlay.querySelector('#m-cancel').onclick = closeModal;
-    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
-
-    overlay.querySelector('#m-save').onclick = async () => {
-        const proyecto = document.getElementById('act-proyecto').value.trim();
-        const costo = Number(document.getElementById('act-costo').value) || 0;
-        const gratuita = document.getElementById('act-gratuita').checked;
-        const tipo = document.getElementById('act-tipo').value;
-        
-        // Verificar si el tipo de actividad permite costo
-        const tipoInfo = TIPOS_ACTIVIDAD[tipo];
-        let costoFinal = costo;
-        
-        if (gratuita || !tipoInfo.tieneCosto) {
-            costoFinal = 0;
-        }
-
-        const nuevo = {
-            id: a.id,
-            fecha: document.getElementById('act-fecha').value,
-            tipo: tipo,
-            titulo: document.getElementById('act-titulo').value.trim(),
-            cliente: document.getElementById('act-cliente').value.trim(),
-            proyecto: proyecto,
-            ubicacion: document.getElementById('act-ubicacion').value.trim(),
-            duracion: document.getElementById('act-duracion').value.trim(),
-            costo: costoFinal,
-            participantes: document.getElementById('act-participantes').value.trim(),
-            observaciones: document.getElementById('act-observaciones').value.trim(),
-            resultados: document.getElementById('act-resultados').value.trim(),
-            gratuita: gratuita || costoFinal === 0
-        };
-
-        if (!nuevo.titulo) { toast('Ingresa un título para la actividad.'); return; }
-
-        if (isNew) S.actividades.push(nuevo);
-        else S.actividades = S.actividades.map(x => x.id === nuevo.id ? nuevo : x);
-
-        await saveActividades(S.user?.uid);
-        closeModal();
-        render();
-        toast(isNew ? '✅ Actividad registrada.' : '✅ Actividad actualizada.');
-    };
-}
-
-// ---- DETALLE DE ACTIVIDAD ----
-function verActividadDetalle(actId) {
-    const act = S.actividades.find(a => a.id === actId);
-    if (!act) { toast('⚠️ Actividad no encontrada.'); return; }
-    
-    const tipoInfo = TIPOS_ACTIVIDAD[act.tipo] || TIPOS_ACTIVIDAD.otro;
-    
-    const overlay = document.createElement('div');
-    overlay.className = 'overlay';
-    overlay.innerHTML = `
-        <div class="modal" style="max-width:600px;">
-            <div class="modal-h">
-                <h3>${tipoInfo.icon} Detalle de actividad</h3>
-                <button class="close" id="m-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
-                    <div><strong>Título:</strong></div>
-                    <div style="font-weight:600;">${esc(act.titulo)}</div>
-                    
-                    <div><strong>Tipo:</strong></div>
-                    <div><span style="color:${tipoInfo.color};">${tipoInfo.icon} ${tipoInfo.label}</span></div>
-                    
-                    <div><strong>Fecha:</strong></div>
-                    <div>${fmtDate(act.fecha)}</div>
-                    
-                    <div><strong>Cliente:</strong></div>
-                    <div>${esc(act.cliente||'—')}</div>
-                    
-                    <div><strong>Proyecto:</strong></div>
-                    <div>${esc(act.proyecto||'—')}</div>
-                    
-                    <div><strong>Ubicación:</strong></div>
-                    <div>${esc(act.ubicacion||'—')}</div>
-                    
-                    ${act.duracion ? `
-                        <div><strong>Duración:</strong></div>
-                        <div>${esc(act.duracion)}</div>
-                    ` : ''}
-                    
-                    ${act.costo ? `
-                        <div><strong>Costo:</strong></div>
-                        <div>${bs(act.costo)} ${act.gratuita ? '🎁 (Gratuita)' : ''}</div>
-                    ` : ''}
-                    
-                    ${act.participantes ? `
-                        <div><strong>Participantes:</strong></div>
-                        <div>${esc(act.participantes)}</div>
-                    ` : ''}
-                </div>
-                ${act.observaciones ? `
-                    <div style="margin-top:12px;padding:10px;background:var(--gantt-bg);border-radius:4px;">
-                        <strong>Observaciones:</strong>
-                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.observaciones)}</div>
-                    </div>
-                ` : ''}
-                ${act.resultados ? `
-                    <div style="margin-top:10px;padding:10px;background:#E8F5E9;border-radius:4px;border-left:4px solid var(--success);">
-                        <strong>✅ Resultados / Acuerdos:</strong>
-                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.resultados)}</div>
-                    </div>
-                ` : ''}
-            </div>
-            <div class="modal-foot">
-                <button class="btn btn-ghost" id="m-close-btn">Cerrar</button>
-                <button class="btn btn-primary" data-edit-act="${act.id}">✏️ Editar</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    
-    const closeModal = () => {
-        if (overlay && overlay.parentNode) overlay.remove();
-    };
-    
-    overlay.querySelector('#m-close').onclick = closeModal;
-    overlay.querySelector('#m-close-btn').onclick = closeModal;
-    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
-    
-    overlay.querySelector('[data-edit-act]').onclick = () => {
-        closeModal();
-        openActModal(act);
-    };
-}
-
-// Exponer funciones globales
 window.verActividadDetalle = verActividadDetalle;
 window.openActModal = openActModal;
+window.openDocModal = openDocModal;
+window.verDocumento = verDocumento;
