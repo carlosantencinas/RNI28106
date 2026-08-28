@@ -1293,3 +1293,156 @@ function viewConfig() {
         <button class="btn btn-primary" id="btn-save-cfg">Guardar configuración</button>
     </div></div>`;
 }
+
+// ---- ACTIVIDADES (VIAJES Y REUNIONES) ----
+function viewActividades() {
+    const rows = applyActFiltersAndSort(S.actividades || []);
+    const tipos = Object.keys(TIPOS_ACTIVIDAD);
+    const clientesUnicos = [...new Set(S.actividades.map(a => a.cliente).filter(Boolean))].sort();
+
+    return `
+    <div class="page-head">
+        <div><p class="eyebrow">Registro</p><h1>Actividades</h1><p>Registro de viajes, reuniones y visitas técnicas.</p></div>
+        <div class="page-actions">
+            <button class="btn btn-primary" id="btn-new-actividad">${ICONS.plus} Nueva actividad</button>
+        </div>
+    </div>
+    <div class="panel">
+        <div class="panel-body">
+            <div class="filter-bar act-filter-bar">
+                <label>🔍 Filtros:</label>
+                <select id="act-filter-tipo">
+                    <option value="">Todos</option>
+                    ${Object.entries(TIPOS_ACTIVIDAD).map(([key, val]) => 
+                        `<option value="${key}" ${S.actFilters.tipo === key ? 'selected' : ''}>${val.label}</option>`
+                    ).join('')}
+                </select>
+                <input type="date" id="act-filter-fecha" value="${S.actFilters.fecha}">
+                <input id="act-filter-cliente" list="clientes-act-list" placeholder="Cliente..." value="${S.actFilters.cliente}">
+                <datalist id="clientes-act-list">${clientesUnicos.map(c => `<option value="${c}">`).join('')}</datalist>
+                <input id="act-filter-proyecto" placeholder="Proyecto..." value="${S.actFilters.proyecto}">
+                <button class="btn btn-sm btn-ghost" id="act-filter-apply">Aplicar</button>
+                <span class="filter-clear" id="act-filter-clear">Limpiar</span>
+            </div>
+            ${rows.length ? `
+            <div class="table-wrap"><table>
+                <thead>
+                    <tr>
+                        <th onclick="toggleActSort('fecha')" class="${S.actSort.column === 'fecha' ? 'active' : ''}">Fecha <span class="sort-icon">${S.actSort.column === 'fecha' ? (S.actSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="toggleActSort('tipo')" class="${S.actSort.column === 'tipo' ? 'active' : ''}">Tipo <span class="sort-icon">${S.actSort.column === 'tipo' ? (S.actSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="toggleActSort('titulo')" class="${S.actSort.column === 'titulo' ? 'active' : ''}">Título <span class="sort-icon">${S.actSort.column === 'titulo' ? (S.actSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="toggleActSort('cliente')" class="${S.actSort.column === 'cliente' ? 'active' : ''}">Cliente <span class="sort-icon">${S.actSort.column === 'cliente' ? (S.actSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th onclick="toggleActSort('proyecto')" class="${S.actSort.column === 'proyecto' ? 'active' : ''}">Proyecto <span class="sort-icon">${S.actSort.column === 'proyecto' ? (S.actSort.direction === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
+                        <th>Ubicación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map(a => {
+                        const tipoInfo = TIPOS_ACTIVIDAD[a.tipo] || TIPOS_ACTIVIDAD.otro;
+                        return `<tr>
+                            <td class="tnum" style="white-space:nowrap;">${fmtDate(a.fecha)}</td>
+                            <td><span style="color:${tipoInfo.color};">${tipoInfo.icon} ${tipoInfo.label}</span></td>
+                            <td style="font-weight:500;">${esc(a.titulo)}</td>
+                            <td>${esc(a.cliente||'—')}</td>
+                            <td>${esc(a.proyecto||'—')}</td>
+                            <td style="font-size:12px;color:var(--text-soft);">${esc(a.ubicacion||'—')}</td>
+                            <td>
+                                <div class="rowactions">
+                                    <button class="iconbtn" title="Ver detalle" onclick="verActividadDetalle('${a.id}')">📋</button>
+                                    <button class="iconbtn" title="Editar" data-edit-act="${a.id}">${ICONS.edit}</button>
+                                    <button class="iconbtn" title="Eliminar" data-del-act="${a.id}">${ICONS.trash}</button>
+                                </div>
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table></div>` : `<div class="empty">${ICONS.empty}<div>Sin actividades registradas.</div></div>`}
+        </div>
+    </div>`;
+}
+
+// ---- DETALLE DE ACTIVIDAD ----
+function verActividadDetalle(actId) {
+    const act = S.actividades.find(a => a.id === actId);
+    if (!act) { toast('⚠️ Actividad no encontrada.'); return; }
+    
+    const tipoInfo = TIPOS_ACTIVIDAD[act.tipo] || TIPOS_ACTIVIDAD.otro;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-h">
+                <h3>${tipoInfo.icon} Detalle de actividad</h3>
+                <button class="close" id="m-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+                    <div><strong>Título:</strong></div>
+                    <div style="font-weight:600;">${esc(act.titulo)}</div>
+                    
+                    <div><strong>Tipo:</strong></div>
+                    <div><span style="color:${tipoInfo.color};">${tipoInfo.icon} ${tipoInfo.label}</span></div>
+                    
+                    <div><strong>Fecha:</strong></div>
+                    <div>${fmtDate(act.fecha)}</div>
+                    
+                    <div><strong>Cliente:</strong></div>
+                    <div>${esc(act.cliente||'—')}</div>
+                    
+                    <div><strong>Proyecto:</strong></div>
+                    <div>${esc(act.proyecto||'—')}</div>
+                    
+                    <div><strong>Ubicación:</strong></div>
+                    <div>${esc(act.ubicacion||'—')}</div>
+                    
+                    ${act.duracion ? `
+                        <div><strong>Duración:</strong></div>
+                        <div>${esc(act.duracion)}</div>
+                    ` : ''}
+                    
+                    ${act.costo ? `
+                        <div><strong>Costo:</strong></div>
+                        <div>${bs(act.costo)}</div>
+                    ` : ''}
+                    
+                    ${act.participantes ? `
+                        <div><strong>Participantes:</strong></div>
+                        <div>${esc(act.participantes)}</div>
+                    ` : ''}
+                </div>
+                ${act.observaciones ? `
+                    <div style="margin-top:12px;padding:10px;background:var(--gantt-bg);border-radius:4px;">
+                        <strong>Observaciones:</strong>
+                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.observaciones)}</div>
+                    </div>
+                ` : ''}
+                ${act.resultados ? `
+                    <div style="margin-top:10px;padding:10px;background:#E8F5E9;border-radius:4px;border-left:4px solid var(--success);">
+                        <strong>✅ Resultados / Acuerdos:</strong>
+                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.resultados)}</div>
+                    </div>
+                ` : ''}
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" id="m-close-btn">Cerrar</button>
+                <button class="btn btn-primary" data-edit-act="${act.id}">✏️ Editar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    
+    const closeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+    };
+    
+    overlay.querySelector('#m-close').onclick = closeModal;
+    overlay.querySelector('#m-close-btn').onclick = closeModal;
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
+    
+    overlay.querySelector('[data-edit-act]').onclick = () => {
+        closeModal();
+        openActModal(act);
+    };
+}
