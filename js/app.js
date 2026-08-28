@@ -3,6 +3,11 @@
 // ============================================================
 
 // Exponer funciones globales
+// ============================================================
+// INICIO DE LA APLICACIÓN
+// ============================================================
+
+// Exponer funciones globales (todas deben estar definidas antes de usarse)
 window.openPagoFromCotizacion = openPagoFromCotizacion;
 window.toggleCotSort = toggleCotSort;
 window.togglePagoSort = togglePagoSort;
@@ -23,7 +28,7 @@ window.openColumnSelectorModal = openColumnSelectorModal;
 window.exportDebtsWithColumns = exportDebtsWithColumns;
 window.exportDebts = exportDebts;
 
-// Funciones de pagos
+// Funciones de pagos (definidas en app.js o views.js)
 window.editarPagoHistorial = editarPagoHistorial;
 window.eliminarPagoHistorial = eliminarPagoHistorial;
 window.eliminarPagoPrincipal = eliminarPagoPrincipal;
@@ -31,11 +36,11 @@ window.abrirCotizacion = abrirCotizacion;
 window.togglePagoDetalle = togglePagoDetalle;
 window.openRegisterPagoModalFromDetalle = openRegisterPagoModalFromDetalle;
 
-// Funciones de actividades
+// Funciones de actividades (definidas en modals.js)
 window.verActividadDetalle = verActividadDetalle;
 window.openActModal = openActModal;
 
-// Funciones de documentos
+// Funciones de documentos (definidas en modals.js)
 window.openDocModal = openDocModal;
 window.verDocumento = verDocumento;
 
