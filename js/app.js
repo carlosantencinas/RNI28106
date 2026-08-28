@@ -10,12 +10,14 @@ window.toggleExpSort = toggleExpSort;
 window.toggleLicSort = toggleLicSort;
 window.toggleContSort = toggleContSort;
 window.toggleActSort = toggleActSort;
+window.toggleDocSort = toggleDocSort;
 window.clearCotFilters = clearCotFilters;
 window.clearPagoFilters = clearPagoFilters;
 window.clearExpFilters = clearExpFilters;
 window.clearLicFilters = clearLicFilters;
 window.clearContFilters = clearContFilters;
 window.clearActFilters = clearActFilters;
+window.clearDocFilters = clearDocFilters;
 window.calcularEdad = calcularEdad;
 window.openColumnSelectorModal = openColumnSelectorModal;
 window.exportDebtsWithColumns = exportDebtsWithColumns;
@@ -32,6 +34,10 @@ window.openRegisterPagoModalFromDetalle = openRegisterPagoModalFromDetalle;
 // Funciones de actividades
 window.verActividadDetalle = verActividadDetalle;
 window.openActModal = openActModal;
+
+// Funciones de documentos
+window.openDocModal = openDocModal;
+window.verDocumento = verDocumento;
 
 // Funciones de depuración
 window.debugPagosDeuda = debugPagosDeuda;
@@ -236,6 +242,22 @@ function bindAppEvents() {
     const btnNewPago = document.getElementById('btn-new-pago');
     if (btnNewPago) btnNewPago.onclick = () => openPagoModal(null);
 
+    // --- DOCUMENTOS ---
+    const btnNewDoc = document.getElementById('btn-new-doc');
+    if (btnNewDoc) btnNewDoc.onclick = () => openDocModal(null);
+    const btnNewDocEmpty = document.getElementById('btn-new-doc-empty');
+    if (btnNewDocEmpty) btnNewDocEmpty.onclick = () => openDocModal(null);
+    
+    main.querySelectorAll('[data-edit-doc]').forEach(b => b.onclick = () => openDocModal(S.documentos.find(d => d.id === b.dataset.editDoc)));
+    main.querySelectorAll('[data-del-doc]').forEach(b => b.onclick = async () => {
+        if (!confirm('¿Eliminar este documento?')) return;
+        S.documentos = S.documentos.filter(d => d.id !== b.dataset.delDoc);
+        await saveDocumentos(S.user?.uid);
+        render();
+        toast('Documento eliminado.');
+    });
+    main.querySelectorAll('[data-ver-doc]').forEach(b => b.onclick = () => verDocumento(b.dataset.verDoc));
+
     // --- CLIENTES ---
     const btnAddCliente = document.getElementById('btn-add-cliente');
     if (btnAddCliente) btnAddCliente.onclick = async () => {
@@ -340,6 +362,19 @@ function bindAppEvents() {
         render();
         toast('Actividad eliminada.');
     });
+    main.querySelectorAll('[data-ver-act]').forEach(b => {
+        b.onclick = () => {
+            const actId = b.dataset.verAct;
+            if (typeof verActividadDetalle === 'function') {
+                verActividadDetalle(actId);
+            } else if (typeof window.verActividadDetalle === 'function') {
+                window.verActividadDetalle(actId);
+            } else {
+                toast('⚠️ Error: función verActividadDetalle no disponible.');
+                console.error('verActividadDetalle no está definida');
+            }
+        };
+    });
 
     // --- FILTROS ---
     const cotFilterApply = document.getElementById('cot-filter-apply');
@@ -423,6 +458,18 @@ function bindAppEvents() {
     }
     const actFilterClear = document.getElementById('act-filter-clear');
     if (actFilterClear) actFilterClear.onclick = clearActFilters;
+
+    const docFilterApply = document.getElementById('doc-filter-apply');
+    if (docFilterApply) {
+        docFilterApply.onclick = () => {
+            S.docFilters.tipo = document.getElementById('doc-filter-tipo').value || '';
+            S.docFilters.vigente = document.getElementById('doc-filter-vigente').value || '';
+            render();
+            toast('🔍 Filtros aplicados');
+        };
+    }
+    const docFilterClear = document.getElementById('doc-filter-clear');
+    if (docFilterClear) docFilterClear.onclick = clearDocFilters;
 
     // Enter en filtros
     document.querySelectorAll('.filter-bar input').forEach(input => {
@@ -725,237 +772,6 @@ function debugPagosDeuda(pagoId) {
     
     console.log('Total de pagos en S.pagos:', S.pagos.length);
     console.log('🔍 === FIN DEBUG ===');
-}
-
-// ============================================================
-// FUNCIONES DE PAGOS (definiciones adicionales)
-// ============================================================
-
-// ---- FUNCIÓN PARA ELIMINAR UN PAGO DEL HISTORIAL ----
-async function eliminarPagoHistorial(pagoId) {
-    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar este pago registrado?\n\nEsta acción no se puede deshacer.')) {
-        return;
-    }
-    
-    try {
-        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
-        if (pagoIndex === -1) {
-            toast('⚠️ No se encontró el pago.');
-            return;
-        }
-        
-        const pagoEliminado = S.pagos[pagoIndex];
-        const montoEliminado = Number(pagoEliminado.montoPagado || 0);
-        
-        let pagoPrincipal = null;
-        let pagoPrincipalIndex = -1;
-        
-        if (pagoEliminado.cotizacionId) {
-            pagoPrincipalIndex = S.pagos.findIndex(p => 
-                p.cotizacionId === pagoEliminado.cotizacionId && 
-                p.id !== pagoId &&
-                Number(p.monto) > 0
-            );
-            if (pagoPrincipalIndex !== -1) {
-                pagoPrincipal = S.pagos[pagoPrincipalIndex];
-            }
-        }
-        
-        S.pagos.splice(pagoIndex, 1);
-        
-        if (pagoPrincipal && pagoPrincipalIndex !== -1) {
-            const nuevoMontoPagado = Math.max(0, (Number(pagoPrincipal.montoPagado || 0) - montoEliminado));
-            pagoPrincipal.montoPagado = nuevoMontoPagado;
-            const notaEliminacion = `❌ Pago de ${bs(montoEliminado)} eliminado (${fmtDate(new Date().toISOString())})`;
-            pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaEliminacion : notaEliminacion;
-            S.pagos[pagoPrincipalIndex] = pagoPrincipal;
-        }
-        
-        await savePagos(S.user?.uid);
-        
-        if (S.expandedPagoId === pagoEliminado.cotizacionId || S.expandedPagoId === pagoId) {
-            const principal = S.pagos.find(p => 
-                p.cotizacionId === pagoEliminado.cotizacionId && 
-                Number(p.monto) > 0
-            );
-            S.expandedPagoId = principal ? principal.id : null;
-        }
-        
-        toast('✅ Pago eliminado correctamente.');
-        render();
-    } catch (error) {
-        console.error('Error al eliminar pago:', error);
-        toast('❌ Error al eliminar el pago.');
-    }
-}
-
-// ---- FUNCIÓN PARA EDITAR UN PAGO DEL HISTORIAL ----
-async function editarPagoHistorial(pagoId) {
-    const pago = S.pagos.find(p => p.id === pagoId);
-    if (!pago) {
-        toast('⚠️ No se encontró el pago.');
-        return;
-    }
-
-    const esPrincipal = S.pagos.some(p => 
-        p.cotizacionId === pago.cotizacionId && 
-        p.id !== pagoId &&
-        Number(p.monto) > 0
-    );
-    
-    if (!esPrincipal) {
-        toast('⚠️ Este es el pago principal. Edita la deuda directamente.');
-        return;
-    }
-
-    const overlay = document.createElement('div');
-    overlay.className = 'overlay';
-    overlay.innerHTML = `
-        <div class="modal" style="max-width:580px;">
-            <div class="modal-h">
-                <h3>✏️ Editar pago registrado</h3>
-                <button class="close" id="m-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="field">
-                    <label>Descripción</label>
-                    <input id="ep-desc" value="${attr(pago.descripcion)}" placeholder="Descripción del pago">
-                </div>
-                <div class="row2">
-                    <div class="field">
-                        <label>Monto pagado [Bs]</label>
-                        <input type="number" step="0.01" id="ep-monto" value="${pago.montoPagado}">
-                    </div>
-                    <div class="field">
-                        <label>Fecha del pago</label>
-                        <input type="date" id="ep-fecha" value="${pago.fecha}">
-                    </div>
-                </div>
-                <div class="row2">
-                    <div class="field">
-                        <label>Método de pago</label>
-                        <select id="ep-metodo">
-                            <option value="">Seleccionar...</option>
-                            <option value="efectivo" ${pago.metodoPago === 'efectivo' ? 'selected' : ''}>💵 Efectivo</option>
-                            <option value="transferencia" ${pago.metodoPago === 'transferencia' ? 'selected' : ''}>🏦 Transferencia bancaria</option>
-                            <option value="deposito" ${pago.metodoPago === 'deposito' ? 'selected' : ''}>🏛️ Depósito</option>
-                            <option value="cheque" ${pago.metodoPago === 'cheque' ? 'selected' : ''}>📄 Cheque</option>
-                            <option value="otro" ${pago.metodoPago === 'otro' ? 'selected' : ''}>📌 Otro</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label>Número de comprobante</label>
-                        <input id="ep-comprobante" value="${attr(pago.comprobante)}" placeholder="Ej. TRANS-001">
-                    </div>
-                </div>
-                <div class="field">
-                    <label>Notas</label>
-                    <textarea id="ep-notas" rows="2">${esc(pago.notas||'')}</textarea>
-                </div>
-                <div style="font-size:12px;color:var(--text-soft);padding:8px 10px;background:var(--gantt-bg);border-radius:4px;margin-top:8px;">
-                    <strong>⚠️ Importante:</strong> Al editar el monto, se recalculará automáticamente el saldo de la deuda principal.
-                </div>
-            </div>
-            <div class="modal-foot">
-                <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
-                <button class="btn btn-primary" id="m-save">💾 Guardar cambios</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const closeModal = () => {
-        if (overlay && overlay.parentNode) overlay.remove();
-    };
-
-    overlay.querySelector('#m-close').onclick = closeModal;
-    overlay.querySelector('#m-cancel').onclick = closeModal;
-    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
-
-    overlay.querySelector('#m-save').onclick = async () => {
-        const nuevoMonto = Number(overlay.querySelector('#ep-monto').value) || 0;
-        const nuevaDesc = overlay.querySelector('#ep-desc').value.trim();
-        const nuevaFecha = overlay.querySelector('#ep-fecha').value;
-        const nuevoMetodo = overlay.querySelector('#ep-metodo').value;
-        const nuevoComprobante = overlay.querySelector('#ep-comprobante').value.trim();
-        const nuevasNotas = overlay.querySelector('#ep-notas').value.trim();
-
-        if (nuevoMonto <= 0) {
-            toast('⚠️ El monto debe ser mayor a cero.');
-            return;
-        }
-
-        const montoAnterior = Number(pago.montoPagado || 0);
-        const diferencia = nuevoMonto - montoAnterior;
-
-        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
-        if (pagoIndex !== -1) {
-            S.pagos[pagoIndex].descripcion = nuevaDesc || S.pagos[pagoIndex].descripcion;
-            S.pagos[pagoIndex].montoPagado = nuevoMonto;
-            S.pagos[pagoIndex].fecha = nuevaFecha || S.pagos[pagoIndex].fecha;
-            S.pagos[pagoIndex].metodoPago = nuevoMetodo || S.pagos[pagoIndex].metodoPago;
-            S.pagos[pagoIndex].comprobante = nuevoComprobante || S.pagos[pagoIndex].comprobante;
-            S.pagos[pagoIndex].notas = nuevasNotas || S.pagos[pagoIndex].notas;
-        }
-
-        if (diferencia !== 0 && pago.cotizacionId) {
-            const pagoPrincipal = S.pagos.find(p => 
-                p.cotizacionId === pago.cotizacionId && 
-                p.id !== pagoId &&
-                Number(p.monto) > 0
-            );
-            
-            if (pagoPrincipal) {
-                const nuevoTotal = Math.max(0, (Number(pagoPrincipal.montoPagado || 0) + diferencia));
-                pagoPrincipal.montoPagado = nuevoTotal;
-                
-                const notaEdicion = `✏️ Pago editado: ${bs(montoAnterior)} → ${bs(nuevoMonto)} (${fmtDate(new Date().toISOString())})`;
-                pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaEdicion : notaEdicion;
-                
-                const principalIndex = S.pagos.findIndex(p => p.id === pagoPrincipal.id);
-                if (principalIndex !== -1) {
-                    S.pagos[principalIndex] = pagoPrincipal;
-                }
-            }
-        }
-
-        await savePagos(S.user?.uid);
-        closeModal();
-        S.expandedPagoId = pago.cotizacionId ? 
-            S.pagos.find(p => p.cotizacionId === pago.cotizacionId && Number(p.monto) > 0)?.id : 
-            null;
-        render();
-        toast('✅ Pago actualizado correctamente.');
-    };
-}
-
-// ---- FUNCIÓN PARA ELIMINAR LA DEUDA PRINCIPAL ----
-async function eliminarPagoPrincipal(pagoId) {
-    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar esta deuda y todos sus pagos asociados?\n\nEsta acción no se puede deshacer.')) {
-        return;
-    }
-    
-    try {
-        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
-        if (pagoIndex === -1) {
-            toast('⚠️ No se encontró la deuda.');
-            return;
-        }
-        
-        const pagoEliminado = S.pagos[pagoIndex];
-        const pagosAsociados = S.pagos.filter(p => p.cotizacionId === pagoEliminado.cotizacionId && p.id !== pagoId);
-        const idsAEliminar = pagosAsociados.map(p => p.id);
-        
-        S.pagos = S.pagos.filter(p => p.id !== pagoId && !idsAEliminar.includes(p.id));
-        await savePagos(S.user?.uid);
-        
-        toast('✅ Deuda y pagos asociados eliminados correctamente.');
-        S.expandedPagoId = null;
-        render();
-    } catch (error) {
-        console.error('Error al eliminar deuda:', error);
-        toast('❌ Error al eliminar la deuda.');
-    }
 }
 
 // ============================================================
