@@ -3,19 +3,6 @@
 // ============================================================
 
 // ---- CONFIGURACIÓN DE COLUMNAS PARA EXPORTAR ----
-const DEBT_COLUMNS = {
-    fecha: { label: 'Fecha', default: true },
-    descripcion: { label: 'Descripción', default: true },
-    cliente: { label: 'Cliente', default: true },
-    proyecto: { label: 'Proyecto', default: true },
-    monto: { label: 'Monto', default: true },
-    pagado: { label: 'Pagado', default: true },
-    saldo: { label: 'Saldo', default: true },
-    metodo: { label: 'Método de pago', default: false },
-    comprobante: { label: 'Comprobante', default: false },
-    notas: { label: 'Notas', default: false }
-};
-
 // ---- OBTENER COLUMNAS SELECCIONADAS ----
 function getSelectedDebtColumns() {
     const selected = [];
