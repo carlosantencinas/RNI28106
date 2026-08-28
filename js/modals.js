@@ -1392,6 +1392,11 @@ function exportDebts(selectedIds) {
     toast(`📄 Reporte de deudas exportado (${debtsWithBalance.length} registros).`);
 }
 // ---- MODAL ACTIVIDADES ----
+// ============================================================
+// MODAL - ACTIVIDADES
+// ============================================================
+
+// ---- MODAL ACTIVIDADES ----
 function openActModal(act) {
     const isNew = !act;
     const a = act ? { ...act } : {
@@ -1406,13 +1411,14 @@ function openActModal(act) {
         costo: 0,
         participantes: '',
         observaciones: '',
-        resultados: ''
+        resultados: '',
+        gratuita: false
     };
 
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
     overlay.innerHTML = `
-        <div class="modal" style="max-width:640px;">
+        <div class="modal" style="max-width:680px;">
             <div class="modal-h">
                 <h3>${isNew ? '📝 Nueva actividad' : '✏️ Editar actividad'}</h3>
                 <button class="close" id="m-close">&times;</button>
@@ -1464,14 +1470,20 @@ function openActModal(act) {
                         <input id="act-duracion" value="${attr(a.duracion)}" placeholder="Ej. 2 horas, 3 días">
                     </div>
                 </div>
-                <div class="row2">
+                <div class="row3">
                     <div class="field">
                         <label>Costo [Bs]</label>
                         <input type="number" step="0.01" id="act-costo" value="${a.costo||0}" placeholder="0.00">
                     </div>
                     <div class="field">
                         <label>Participantes</label>
-                        <input id="act-participantes" value="${attr(a.participantes)}" placeholder="Nombres de participantes">
+                        <input id="act-participantes" value="${attr(a.participantes)}" placeholder="Nombres">
+                    </div>
+                    <div class="field" style="display:flex;align-items:center;padding-top:20px;">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="act-gratuita" ${a.gratuita ? 'checked' : ''}>
+                            <label for="act-gratuita">✅ Actividad gratuita</label>
+                        </div>
                     </div>
                 </div>
                 <div class="field">
@@ -1500,19 +1512,33 @@ function openActModal(act) {
     overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
 
     overlay.querySelector('#m-save').onclick = async () => {
+        const proyecto = document.getElementById('act-proyecto').value.trim();
+        const costo = Number(document.getElementById('act-costo').value) || 0;
+        const gratuita = document.getElementById('act-gratuita').checked;
+        const tipo = document.getElementById('act-tipo').value;
+        
+        // Verificar si el tipo de actividad permite costo
+        const tipoInfo = TIPOS_ACTIVIDAD[tipo];
+        let costoFinal = costo;
+        
+        if (gratuita || !tipoInfo.tieneCosto) {
+            costoFinal = 0;
+        }
+
         const nuevo = {
             id: a.id,
             fecha: document.getElementById('act-fecha').value,
-            tipo: document.getElementById('act-tipo').value,
+            tipo: tipo,
             titulo: document.getElementById('act-titulo').value.trim(),
             cliente: document.getElementById('act-cliente').value.trim(),
-            proyecto: document.getElementById('act-proyecto').value.trim(),
+            proyecto: proyecto,
             ubicacion: document.getElementById('act-ubicacion').value.trim(),
             duracion: document.getElementById('act-duracion').value.trim(),
-            costo: Number(document.getElementById('act-costo').value) || 0,
+            costo: costoFinal,
             participantes: document.getElementById('act-participantes').value.trim(),
             observaciones: document.getElementById('act-observaciones').value.trim(),
-            resultados: document.getElementById('act-resultados').value.trim()
+            resultados: document.getElementById('act-resultados').value.trim(),
+            gratuita: gratuita || costoFinal === 0
         };
 
         if (!nuevo.titulo) { toast('Ingresa un título para la actividad.'); return; }
@@ -1527,6 +1553,91 @@ function openActModal(act) {
     };
 }
 
-// Exponer función global
+// ---- DETALLE DE ACTIVIDAD ----
+function verActividadDetalle(actId) {
+    const act = S.actividades.find(a => a.id === actId);
+    if (!act) { toast('⚠️ Actividad no encontrada.'); return; }
+    
+    const tipoInfo = TIPOS_ACTIVIDAD[act.tipo] || TIPOS_ACTIVIDAD.otro;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-h">
+                <h3>${tipoInfo.icon} Detalle de actividad</h3>
+                <button class="close" id="m-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+                    <div><strong>Título:</strong></div>
+                    <div style="font-weight:600;">${esc(act.titulo)}</div>
+                    
+                    <div><strong>Tipo:</strong></div>
+                    <div><span style="color:${tipoInfo.color};">${tipoInfo.icon} ${tipoInfo.label}</span></div>
+                    
+                    <div><strong>Fecha:</strong></div>
+                    <div>${fmtDate(act.fecha)}</div>
+                    
+                    <div><strong>Cliente:</strong></div>
+                    <div>${esc(act.cliente||'—')}</div>
+                    
+                    <div><strong>Proyecto:</strong></div>
+                    <div>${esc(act.proyecto||'—')}</div>
+                    
+                    <div><strong>Ubicación:</strong></div>
+                    <div>${esc(act.ubicacion||'—')}</div>
+                    
+                    ${act.duracion ? `
+                        <div><strong>Duración:</strong></div>
+                        <div>${esc(act.duracion)}</div>
+                    ` : ''}
+                    
+                    ${act.costo ? `
+                        <div><strong>Costo:</strong></div>
+                        <div>${bs(act.costo)} ${act.gratuita ? '🎁 (Gratuita)' : ''}</div>
+                    ` : ''}
+                    
+                    ${act.participantes ? `
+                        <div><strong>Participantes:</strong></div>
+                        <div>${esc(act.participantes)}</div>
+                    ` : ''}
+                </div>
+                ${act.observaciones ? `
+                    <div style="margin-top:12px;padding:10px;background:var(--gantt-bg);border-radius:4px;">
+                        <strong>Observaciones:</strong>
+                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.observaciones)}</div>
+                    </div>
+                ` : ''}
+                ${act.resultados ? `
+                    <div style="margin-top:10px;padding:10px;background:#E8F5E9;border-radius:4px;border-left:4px solid var(--success);">
+                        <strong>✅ Resultados / Acuerdos:</strong>
+                        <div style="margin-top:4px;white-space:pre-wrap;font-size:13px;">${esc(act.resultados)}</div>
+                    </div>
+                ` : ''}
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" id="m-close-btn">Cerrar</button>
+                <button class="btn btn-primary" data-edit-act="${act.id}">✏️ Editar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    
+    const closeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+    };
+    
+    overlay.querySelector('#m-close').onclick = closeModal;
+    overlay.querySelector('#m-close-btn').onclick = closeModal;
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
+    
+    overlay.querySelector('[data-edit-act]').onclick = () => {
+        closeModal();
+        openActModal(act);
+    };
+}
+
+// Exponer funciones globales
 window.verActividadDetalle = verActividadDetalle;
 window.openActModal = openActModal;
