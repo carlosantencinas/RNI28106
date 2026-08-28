@@ -3,9 +3,6 @@
 // ============================================================
 
 // Exponer funciones globales
-// En app.js, en la sección de funciones globales, asegurar que todas estén declaradas:
-
-// Exponer funciones globales
 window.openPagoFromCotizacion = openPagoFromCotizacion;
 window.toggleCotSort = toggleCotSort;
 window.togglePagoSort = togglePagoSort;
@@ -35,6 +32,10 @@ window.openRegisterPagoModalFromDetalle = openRegisterPagoModalFromDetalle;
 // Funciones de actividades
 window.verActividadDetalle = verActividadDetalle;
 window.openActModal = openActModal;
+
+// Funciones de depuración
+window.debugPagosDeuda = debugPagosDeuda;
+
 // ============================================================
 // BIND APP EVENTS - Manejadores de eventos
 // ============================================================
@@ -328,6 +329,18 @@ function bindAppEvents() {
     const btnExpCont = document.getElementById('btn-export-cont-excel');
     if (btnExpCont) btnExpCont.onclick = exportContactosExcel;
 
+    // --- ACTIVIDADES ---
+    const btnNewActividad = document.getElementById('btn-new-actividad');
+    if (btnNewActividad) btnNewActividad.onclick = () => openActModal(null);
+    main.querySelectorAll('[data-edit-act]').forEach(b => b.onclick = () => openActModal(S.actividades.find(a => a.id === b.dataset.editAct)));
+    main.querySelectorAll('[data-del-act]').forEach(b => b.onclick = async () => {
+        if (!confirm('¿Eliminar esta actividad?')) return;
+        S.actividades = S.actividades.filter(a => a.id !== b.dataset.delAct);
+        await saveActividades(S.user?.uid);
+        render();
+        toast('Actividad eliminada.');
+    });
+
     // --- FILTROS ---
     const cotFilterApply = document.getElementById('cot-filter-apply');
     if (cotFilterApply) {
@@ -397,6 +410,20 @@ function bindAppEvents() {
     const contFilterClear = document.getElementById('cont-filter-clear');
     if (contFilterClear) contFilterClear.onclick = clearContFilters;
 
+    const actFilterApply = document.getElementById('act-filter-apply');
+    if (actFilterApply) {
+        actFilterApply.onclick = () => {
+            S.actFilters.tipo = document.getElementById('act-filter-tipo').value || '';
+            S.actFilters.fecha = document.getElementById('act-filter-fecha').value || '';
+            S.actFilters.cliente = document.getElementById('act-filter-cliente').value || '';
+            S.actFilters.proyecto = document.getElementById('act-filter-proyecto').value || '';
+            render();
+            toast('🔍 Filtros aplicados');
+        };
+    }
+    const actFilterClear = document.getElementById('act-filter-clear');
+    if (actFilterClear) actFilterClear.onclick = clearActFilters;
+
     // Enter en filtros
     document.querySelectorAll('.filter-bar input').forEach(input => {
         input.addEventListener('keydown', (e) => {
@@ -455,7 +482,6 @@ function bindAppEvents() {
             selectedSpan.textContent = `${selectedCount} seleccionados`;
         }
         
-        // Botón de exportar directo
         const exportBtn = document.getElementById('btn-export-debts');
         if (exportBtn) {
             const validSelected = Array.from(checkboxes)
@@ -467,7 +493,6 @@ function bindAppEvents() {
             exportBtn.textContent = `📤 Exportar deuda (${count})`;
         }
 
-        // Botón de selección de columnas
         const selectColumnsBtn = document.getElementById('btn-select-columns');
         if (selectColumnsBtn) {
             const validSelected = Array.from(checkboxes)
@@ -524,18 +549,15 @@ function bindAppEvents() {
         };
     }
 
-    // Botón de exportar directo (usa todas las columnas)
     const exportDebtsBtn = document.getElementById('btn-export-debts');
     if (exportDebtsBtn) {
         exportDebtsBtn.onclick = () => {
             const selectedIds = Array.from(S.selectedDebts);
-            // Usar todas las columnas por defecto
             const allColumns = Object.keys(DEBT_COLUMNS);
             exportDebtsWithColumns(selectedIds, allColumns);
         };
     }
 
-    // Nuevo botón para seleccionar columnas
     const selectColumnsBtn = document.getElementById('btn-select-columns');
     if (selectColumnsBtn) {
         selectColumnsBtn.onclick = () => {
@@ -674,95 +696,9 @@ function initLoginEvents() {
 }
 
 // ============================================================
-// INICIALIZACIÓN
+// FUNCIÓN DE DEPURACIÓN
 // ============================================================
 
-// Cargar configuración guardada
-const savedConfig = getSavedFirebaseConfig();
-if (savedConfig) {
-    const input = document.getElementById('firebase-config-input');
-    if (input) {
-        input.value = JSON.stringify(savedConfig, null, 2);
-    }
-    updateFirebaseStatus(true, '✅ Configuración guardada');
-}
-
-// Inicializar eventos de login y Firebase
-initLoginEvents();
-initFirebase();
-// ---- FUNCIÓN PARA ELIMINAR UN PAGO DEL HISTORIAL (CORREGIDA) ----
-async function eliminarPagoHistorial(pagoId) {
-    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar este pago registrado?\n\nEsta acción no se puede deshacer.')) {
-        return;
-    }
-    
-    try {
-        // Buscar el pago a eliminar
-        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
-        if (pagoIndex === -1) {
-            toast('⚠️ No se encontró el pago.');
-            return;
-        }
-        
-        const pagoEliminado = S.pagos[pagoIndex];
-        const montoEliminado = Number(pagoEliminado.montoPagado || 0);
-        
-        // Buscar el pago principal (el que tiene el monto total)
-        let pagoPrincipal = null;
-        let pagoPrincipalIndex = -1;
-        
-        if (pagoEliminado.cotizacionId) {
-            // Buscar el pago principal con la misma cotizacionId
-            pagoPrincipalIndex = S.pagos.findIndex(p => 
-                p.cotizacionId === pagoEliminado.cotizacionId && 
-                p.id !== pagoId &&
-                Number(p.monto) > 0
-            );
-            if (pagoPrincipalIndex !== -1) {
-                pagoPrincipal = S.pagos[pagoPrincipalIndex];
-            }
-        }
-        
-        // Eliminar el pago del historial
-        S.pagos.splice(pagoIndex, 1);
-        
-        // Si existe un pago principal, actualizar su montoPagado restando el monto eliminado
-        if (pagoPrincipal && pagoPrincipalIndex !== -1) {
-            const nuevoMontoPagado = Math.max(0, (Number(pagoPrincipal.montoPagado || 0) - montoEliminado));
-            pagoPrincipal.montoPagado = nuevoMontoPagado;
-            
-            // Actualizar notas para reflejar la eliminación
-            const notaEliminacion = `❌ Pago de ${bs(montoEliminado)} eliminado (${fmtDate(new Date().toISOString())})`;
-            pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaEliminacion : notaEliminacion;
-            
-            S.pagos[pagoPrincipalIndex] = pagoPrincipal;
-        }
-        
-        // Guardar cambios
-        await savePagos(S.user?.uid);
-        
-        // Mantener el detalle expandido si estaba abierto
-        if (S.expandedPagoId === pagoEliminado.cotizacionId || S.expandedPagoId === pagoId) {
-            // Buscar el pago principal para mantenerlo expandido
-            const principal = S.pagos.find(p => 
-                p.cotizacionId === pagoEliminado.cotizacionId && 
-                Number(p.monto) > 0
-            );
-            if (principal) {
-                S.expandedPagoId = principal.id;
-            } else {
-                S.expandedPagoId = null;
-            }
-        }
-        
-        toast('✅ Pago eliminado correctamente.');
-        render();
-    } catch (error) {
-        console.error('Error al eliminar pago:', error);
-        toast('❌ Error al eliminar el pago.');
-    }
-}
-// ---- FUNCIÓN DE DEPURACIÓN PARA VER PAGOS ASOCIADOS ----
 function debugPagosDeuda(pagoId) {
     const pago = S.pagos.find(p => p.id === pagoId);
     if (!pago) {
@@ -774,14 +710,12 @@ function debugPagosDeuda(pagoId) {
     console.log('Pago principal:', pago);
     console.log('cotizacionId:', pago.cotizacionId);
     
-    // Buscar todos los pagos con la misma cotizacionId
     const asociados = S.pagos.filter(p => 
         p.cotizacionId === pago.cotizacionId && 
         p.id !== pago.id
     );
     console.log('Pagos asociados por cotizacionId:', asociados);
     
-    // Buscar por cliente
     const porCliente = S.pagos.filter(p => 
         p.cliente === pago.cliente && 
         p.id !== pago.id &&
@@ -793,8 +727,68 @@ function debugPagosDeuda(pagoId) {
     console.log('🔍 === FIN DEBUG ===');
 }
 
-// Exponer función de depuración
-window.debugPagosDeuda = debugPagosDeuda;
+// ============================================================
+// FUNCIONES DE PAGOS (definiciones adicionales)
+// ============================================================
+
+// ---- FUNCIÓN PARA ELIMINAR UN PAGO DEL HISTORIAL ----
+async function eliminarPagoHistorial(pagoId) {
+    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar este pago registrado?\n\nEsta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
+        if (pagoIndex === -1) {
+            toast('⚠️ No se encontró el pago.');
+            return;
+        }
+        
+        const pagoEliminado = S.pagos[pagoIndex];
+        const montoEliminado = Number(pagoEliminado.montoPagado || 0);
+        
+        let pagoPrincipal = null;
+        let pagoPrincipalIndex = -1;
+        
+        if (pagoEliminado.cotizacionId) {
+            pagoPrincipalIndex = S.pagos.findIndex(p => 
+                p.cotizacionId === pagoEliminado.cotizacionId && 
+                p.id !== pagoId &&
+                Number(p.monto) > 0
+            );
+            if (pagoPrincipalIndex !== -1) {
+                pagoPrincipal = S.pagos[pagoPrincipalIndex];
+            }
+        }
+        
+        S.pagos.splice(pagoIndex, 1);
+        
+        if (pagoPrincipal && pagoPrincipalIndex !== -1) {
+            const nuevoMontoPagado = Math.max(0, (Number(pagoPrincipal.montoPagado || 0) - montoEliminado));
+            pagoPrincipal.montoPagado = nuevoMontoPagado;
+            const notaEliminacion = `❌ Pago de ${bs(montoEliminado)} eliminado (${fmtDate(new Date().toISOString())})`;
+            pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaEliminacion : notaEliminacion;
+            S.pagos[pagoPrincipalIndex] = pagoPrincipal;
+        }
+        
+        await savePagos(S.user?.uid);
+        
+        if (S.expandedPagoId === pagoEliminado.cotizacionId || S.expandedPagoId === pagoId) {
+            const principal = S.pagos.find(p => 
+                p.cotizacionId === pagoEliminado.cotizacionId && 
+                Number(p.monto) > 0
+            );
+            S.expandedPagoId = principal ? principal.id : null;
+        }
+        
+        toast('✅ Pago eliminado correctamente.');
+        render();
+    } catch (error) {
+        console.error('Error al eliminar pago:', error);
+        toast('❌ Error al eliminar el pago.');
+    }
+}
+
 // ---- FUNCIÓN PARA EDITAR UN PAGO DEL HISTORIAL ----
 async function editarPagoHistorial(pagoId) {
     const pago = S.pagos.find(p => p.id === pagoId);
@@ -803,7 +797,6 @@ async function editarPagoHistorial(pagoId) {
         return;
     }
 
-    // Verificar que no sea el pago principal
     const esPrincipal = S.pagos.some(p => 
         p.cotizacionId === pago.cotizacionId && 
         p.id !== pagoId &&
@@ -811,12 +804,10 @@ async function editarPagoHistorial(pagoId) {
     );
     
     if (!esPrincipal) {
-        // Si no hay un pago principal, este podría ser el principal
         toast('⚠️ Este es el pago principal. Edita la deuda directamente.');
         return;
     }
 
-    // Crear un modal de edición similar al de registro
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
     overlay.innerHTML = `
@@ -894,11 +885,9 @@ async function editarPagoHistorial(pagoId) {
             return;
         }
 
-        // Guardar el monto anterior para recalcular
         const montoAnterior = Number(pago.montoPagado || 0);
         const diferencia = nuevoMonto - montoAnterior;
 
-        // Actualizar el pago
         const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
         if (pagoIndex !== -1) {
             S.pagos[pagoIndex].descripcion = nuevaDesc || S.pagos[pagoIndex].descripcion;
@@ -909,7 +898,6 @@ async function editarPagoHistorial(pagoId) {
             S.pagos[pagoIndex].notas = nuevasNotas || S.pagos[pagoIndex].notas;
         }
 
-        // Si hay diferencia, actualizar el pago principal
         if (diferencia !== 0 && pago.cotizacionId) {
             const pagoPrincipal = S.pagos.find(p => 
                 p.cotizacionId === pago.cotizacionId && 
@@ -941,5 +929,49 @@ async function editarPagoHistorial(pagoId) {
     };
 }
 
-// Exponer función global
-window.editarPagoHistorial = editarPagoHistorial;
+// ---- FUNCIÓN PARA ELIMINAR LA DEUDA PRINCIPAL ----
+async function eliminarPagoPrincipal(pagoId) {
+    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar esta deuda y todos sus pagos asociados?\n\nEsta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
+        if (pagoIndex === -1) {
+            toast('⚠️ No se encontró la deuda.');
+            return;
+        }
+        
+        const pagoEliminado = S.pagos[pagoIndex];
+        const pagosAsociados = S.pagos.filter(p => p.cotizacionId === pagoEliminado.cotizacionId && p.id !== pagoId);
+        const idsAEliminar = pagosAsociados.map(p => p.id);
+        
+        S.pagos = S.pagos.filter(p => p.id !== pagoId && !idsAEliminar.includes(p.id));
+        await savePagos(S.user?.uid);
+        
+        toast('✅ Deuda y pagos asociados eliminados correctamente.');
+        S.expandedPagoId = null;
+        render();
+    } catch (error) {
+        console.error('Error al eliminar deuda:', error);
+        toast('❌ Error al eliminar la deuda.');
+    }
+}
+
+// ============================================================
+// INICIALIZACIÓN
+// ============================================================
+
+// Cargar configuración guardada
+const savedConfig = getSavedFirebaseConfig();
+if (savedConfig) {
+    const input = document.getElementById('firebase-config-input');
+    if (input) {
+        input.value = JSON.stringify(savedConfig, null, 2);
+    }
+    updateFirebaseStatus(true, '✅ Configuración guardada');
+}
+
+// Inicializar eventos de login y Firebase
+initLoginEvents();
+initFirebase();
