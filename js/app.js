@@ -783,3 +783,151 @@ function debugPagosDeuda(pagoId) {
 
 // Exponer función de depuración
 window.debugPagosDeuda = debugPagosDeuda;
+// ---- FUNCIÓN PARA EDITAR UN PAGO DEL HISTORIAL ----
+async function editarPagoHistorial(pagoId) {
+    const pago = S.pagos.find(p => p.id === pagoId);
+    if (!pago) {
+        toast('⚠️ No se encontró el pago.');
+        return;
+    }
+
+    // Verificar que no sea el pago principal
+    const esPrincipal = S.pagos.some(p => 
+        p.cotizacionId === pago.cotizacionId && 
+        p.id !== pagoId &&
+        Number(p.monto) > 0
+    );
+    
+    if (!esPrincipal) {
+        // Si no hay un pago principal, este podría ser el principal
+        toast('⚠️ Este es el pago principal. Edita la deuda directamente.');
+        return;
+    }
+
+    // Crear un modal de edición similar al de registro
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:580px;">
+            <div class="modal-h">
+                <h3>✏️ Editar pago registrado</h3>
+                <button class="close" id="m-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="field">
+                    <label>Descripción</label>
+                    <input id="ep-desc" value="${attr(pago.descripcion)}" placeholder="Descripción del pago">
+                </div>
+                <div class="row2">
+                    <div class="field">
+                        <label>Monto pagado [Bs]</label>
+                        <input type="number" step="0.01" id="ep-monto" value="${pago.montoPagado}">
+                    </div>
+                    <div class="field">
+                        <label>Fecha del pago</label>
+                        <input type="date" id="ep-fecha" value="${pago.fecha}">
+                    </div>
+                </div>
+                <div class="row2">
+                    <div class="field">
+                        <label>Método de pago</label>
+                        <select id="ep-metodo">
+                            <option value="">Seleccionar...</option>
+                            <option value="efectivo" ${pago.metodoPago === 'efectivo' ? 'selected' : ''}>💵 Efectivo</option>
+                            <option value="transferencia" ${pago.metodoPago === 'transferencia' ? 'selected' : ''}>🏦 Transferencia bancaria</option>
+                            <option value="deposito" ${pago.metodoPago === 'deposito' ? 'selected' : ''}>🏛️ Depósito</option>
+                            <option value="cheque" ${pago.metodoPago === 'cheque' ? 'selected' : ''}>📄 Cheque</option>
+                            <option value="otro" ${pago.metodoPago === 'otro' ? 'selected' : ''}>📌 Otro</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Número de comprobante</label>
+                        <input id="ep-comprobante" value="${attr(pago.comprobante)}" placeholder="Ej. TRANS-001">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Notas</label>
+                    <textarea id="ep-notas" rows="2">${esc(pago.notas||'')}</textarea>
+                </div>
+                <div style="font-size:12px;color:var(--text-soft);padding:8px 10px;background:var(--gantt-bg);border-radius:4px;margin-top:8px;">
+                    <strong>⚠️ Importante:</strong> Al editar el monto, se recalculará automáticamente el saldo de la deuda principal.
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
+                <button class="btn btn-primary" id="m-save">💾 Guardar cambios</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+    };
+
+    overlay.querySelector('#m-close').onclick = closeModal;
+    overlay.querySelector('#m-cancel').onclick = closeModal;
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
+
+    overlay.querySelector('#m-save').onclick = async () => {
+        const nuevoMonto = Number(overlay.querySelector('#ep-monto').value) || 0;
+        const nuevaDesc = overlay.querySelector('#ep-desc').value.trim();
+        const nuevaFecha = overlay.querySelector('#ep-fecha').value;
+        const nuevoMetodo = overlay.querySelector('#ep-metodo').value;
+        const nuevoComprobante = overlay.querySelector('#ep-comprobante').value.trim();
+        const nuevasNotas = overlay.querySelector('#ep-notas').value.trim();
+
+        if (nuevoMonto <= 0) {
+            toast('⚠️ El monto debe ser mayor a cero.');
+            return;
+        }
+
+        // Guardar el monto anterior para recalcular
+        const montoAnterior = Number(pago.montoPagado || 0);
+        const diferencia = nuevoMonto - montoAnterior;
+
+        // Actualizar el pago
+        const pagoIndex = S.pagos.findIndex(p => p.id === pagoId);
+        if (pagoIndex !== -1) {
+            S.pagos[pagoIndex].descripcion = nuevaDesc || S.pagos[pagoIndex].descripcion;
+            S.pagos[pagoIndex].montoPagado = nuevoMonto;
+            S.pagos[pagoIndex].fecha = nuevaFecha || S.pagos[pagoIndex].fecha;
+            S.pagos[pagoIndex].metodoPago = nuevoMetodo || S.pagos[pagoIndex].metodoPago;
+            S.pagos[pagoIndex].comprobante = nuevoComprobante || S.pagos[pagoIndex].comprobante;
+            S.pagos[pagoIndex].notas = nuevasNotas || S.pagos[pagoIndex].notas;
+        }
+
+        // Si hay diferencia, actualizar el pago principal
+        if (diferencia !== 0 && pago.cotizacionId) {
+            const pagoPrincipal = S.pagos.find(p => 
+                p.cotizacionId === pago.cotizacionId && 
+                p.id !== pagoId &&
+                Number(p.monto) > 0
+            );
+            
+            if (pagoPrincipal) {
+                const nuevoTotal = Math.max(0, (Number(pagoPrincipal.montoPagado || 0) + diferencia));
+                pagoPrincipal.montoPagado = nuevoTotal;
+                
+                const notaEdicion = `✏️ Pago editado: ${bs(montoAnterior)} → ${bs(nuevoMonto)} (${fmtDate(new Date().toISOString())})`;
+                pagoPrincipal.notas = pagoPrincipal.notas ? pagoPrincipal.notas + '\n' + notaEdicion : notaEdicion;
+                
+                const principalIndex = S.pagos.findIndex(p => p.id === pagoPrincipal.id);
+                if (principalIndex !== -1) {
+                    S.pagos[principalIndex] = pagoPrincipal;
+                }
+            }
+        }
+
+        await savePagos(S.user?.uid);
+        closeModal();
+        S.expandedPagoId = pago.cotizacionId ? 
+            S.pagos.find(p => p.cotizacionId === pago.cotizacionId && Number(p.monto) > 0)?.id : 
+            null;
+        render();
+        toast('✅ Pago actualizado correctamente.');
+    };
+}
+
+// Exponer función global
+window.editarPagoHistorial = editarPagoHistorial;
