@@ -9,19 +9,24 @@ window.togglePagoSort = togglePagoSort;
 window.toggleExpSort = toggleExpSort;
 window.toggleLicSort = toggleLicSort;
 window.toggleContSort = toggleContSort;
+window.toggleActSort = toggleActSort;
 window.clearCotFilters = clearCotFilters;
 window.clearPagoFilters = clearPagoFilters;
 window.clearExpFilters = clearExpFilters;
 window.clearLicFilters = clearLicFilters;
 window.clearContFilters = clearContFilters;
+window.clearActFilters = clearActFilters;
 window.calcularEdad = calcularEdad;
-window.openColumnSelectorModal = openColumnSelectorModal;
+window.openColumnSelectorModal = openColumnSelectorModal; // <-- AGREGAR ESTA LÍNEA
+window.exportDebtsWithColumns = exportDebtsWithColumns;
+window.exportDebts = exportDebts;
+window.editarPagoHistorial = editarPagoHistorial;
 window.eliminarPagoHistorial = eliminarPagoHistorial;
 window.eliminarPagoPrincipal = eliminarPagoPrincipal;
 window.abrirCotizacion = abrirCotizacion;
-window.openRegisterPagoModalFromDetalle = openRegisterPagoModalFromDetalle;
 window.togglePagoDetalle = togglePagoDetalle;
-window.exportDebtIndividual = exportDebtIndividual;
+window.verActividadDetalle = verActividadDetalle;
+window.openActModal = openActModal;
 
 // ============================================================
 // BIND APP EVENTS - Manejadores de eventos
