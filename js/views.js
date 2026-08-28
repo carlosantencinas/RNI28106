@@ -650,27 +650,22 @@ function viewPagos() {
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
 // ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CORREGIDA) ----
+// ---- FUNCIÓN PARA RENDERIZAR DETALLE DE PAGO (CON EDICIÓN) ----
 function renderPagoDetalle(pago, cot, historialPagos) {
     const saldo = Number(pago.monto) - Number(pago.montoPagado || 0);
     const esCompletamentePagado = saldo <= 0.01;
 
-    // ============================================================
-    // OBTENER TODOS LOS PAGOS ASOCIADOS - BUSCAR POR cotizacionId
-    // ============================================================
+    // OBTENER TODOS LOS PAGOS ASOCIADOS
     let todosLosPagos = [];
     
-    // ESTRATEGIA 1: Buscar por cotizacionId (la más confiable)
     if (pago.cotizacionId) {
-        // Buscar TODOS los pagos que tengan la misma cotizacionId
-        // Y que tengan montoPagado > 0 (pagos reales)
         todosLosPagos = S.pagos.filter(p => 
             p.cotizacionId === pago.cotizacionId && 
-            p.id !== pago.id && // Excluir el pago principal
-            Number(p.montoPagado || 0) > 0 // Solo pagos con monto > 0
+            p.id !== pago.id &&
+            Number(p.montoPagado || 0) > 0
         );
     }
     
-    // ESTRATEGIA 2: Si no se encontraron por cotizacionId, buscar por cliente
     if (todosLosPagos.length === 0 && pago.cliente) {
         todosLosPagos = S.pagos.filter(p => 
             p.cliente === pago.cliente && 
@@ -680,21 +675,11 @@ function renderPagoDetalle(pago, cot, historialPagos) {
         );
     }
 
-    // Ordenar por fecha (más reciente primero)
     todosLosPagos.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-
-    // Calcular total pagado en historial
     const totalHistorial = todosLosPagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
 
-    // Escapar IDs
     const pagoId = pago.id;
     const cotId = cot ? cot.id : '';
-
-    // DEBUG
-    console.log('🔍 Pago principal:', pago);
-    console.log('🔍 Pagos encontrados en historial:', todosLosPagos);
-    console.log('🔍 Total pagado en historial:', totalHistorial);
-    console.log('🔍 Total pagos en S.pagos:', S.pagos.length);
 
     return `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -760,8 +745,14 @@ function renderPagoDetalle(pago, cot, historialPagos) {
                                     </div>
                                     ${p.notas ? `<div style="font-size:11px;color:var(--text-soft);margin-top:2px;word-break:break-word;">${esc(p.notas)}</div>` : ''}
                                 </div>
-                                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:8px;">
+                                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px;">
                                     <span style="font-weight:600;font-size:13px;white-space:nowrap;">${bs(p.montoPagado)}</span>
+                                    <!-- BOTÓN EDITAR -->
+                                    <button class="iconbtn" style="padding:2px 5px;font-size:11px;color:var(--primary);border-color:var(--primary);" 
+                                        onclick="editarPagoHistorial('${p.id}')" title="Editar este pago">
+                                        ✏️
+                                    </button>
+                                    <!-- BOTÓN ELIMINAR -->
                                     <button class="iconbtn" style="padding:2px 5px;font-size:11px;color:var(--danger);border-color:var(--danger);" 
                                         onclick="eliminarPagoHistorial('${p.id}')" title="Eliminar este pago">
                                         ✕
