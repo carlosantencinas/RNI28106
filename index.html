@@ -3,8 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1A4A5C">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Ing. Antequera">
     <title>Ing. Antequera — Suite Profesional</title>
-    <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/tu-usuario/tu-repo/main/favicon.ico">
+
+    <!-- PWA / Iconos -->
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="./assets/icons/icon-192.png">
     
     <!-- Librerías externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -110,18 +120,18 @@
 
     <div id="toast"></div>
 
-<!-- JavaScript modular - ORDEN CORRECTO -->
-<script src="js/config.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/state.js"></script>
-<script src="js/firebase.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/filters.js"></script>
-<script src="js/exports.js"></script>
-<script src="js/views.js"></script>
-<script src="js/modals.js"></script>
-<script src="js/pagos.js"></script>        <!-- utilidades de pagos: antes de render/app -->
-<script src="js/render.js"></script>
-<script src="js/app.js"></script>
+    <!-- JavaScript modular - ORDEN CORRECTO -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/firebase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/filters.js"></script>
+    <script src="js/exports.js"></script>
+    <script src="js/views.js"></script>
+    <script src="js/modals.js"></script>
+    <script src="js/pagos.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
