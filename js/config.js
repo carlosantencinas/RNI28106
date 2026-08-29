@@ -2,7 +2,7 @@
 // CONFIGURACIÓN (ACTUALIZADA)
 // ============================================================
 
-const LOGO_URL = "https://raw.githubusercontent.com/tu-usuario/tu-repo/main/logo.png";
+const LOGO_URL = "./assets/icons/icon-512.png";
 
 const DEFAULT_CONFIG = {
     nombre: 'M.Sc. Ing. Carlos A. Antequera E.',
@@ -20,7 +20,6 @@ const DEFAULT_REFERENCIAS = [
 
 const LS_PREFIX = 'hidro_data_';
 
-// ---- COLUMNAS PARA EXPORTAR DEUDAS ----
 const DEBT_COLUMNS = {
     fecha: { label: 'Fecha', default: true },
     descripcion: { label: 'Descripción', default: true },
@@ -34,7 +33,6 @@ const DEBT_COLUMNS = {
     notas: { label: 'Notas', default: false }
 };
 
-// ========== NUEVO: TIPOS DE ACTIVIDADES ==========
 const TIPOS_ACTIVIDAD = {
     reunion: { label: '🤝 Reunión', icon: '🤝', color: '#4A90D9' },
     viaje: { label: '✈️ Viaje', icon: '✈️', color: '#E67E22' },
@@ -42,13 +40,7 @@ const TIPOS_ACTIVIDAD = {
     capacitacion: { label: '📚 Capacitación', icon: '📚', color: '#8E44AD' },
     otro: { label: '📌 Otro', icon: '📌', color: '#7F8C8D' }
 };
-// ============================================================
-// CONFIGURACIÓN (ACTUALIZADA)
-// ============================================================
 
-// ... config existente ...
-
-// ========== TIPOS DE DOCUMENTOS ADMINISTRATIVOS ==========
 const TIPOS_DOCUMENTOS = {
     seprec: { label: '📋 SEPREC', icon: '📋', color: '#2E86C1' },
     nit: { label: '🏛️ NIT', icon: '🏛️', color: '#27AE60' },
@@ -57,3 +49,46 @@ const TIPOS_DOCUMENTOS = {
     matricula: { label: '🎓 Matrícula', icon: '🎓', color: '#1A4A5C' },
     otro: { label: '📁 Otro', icon: '📁', color: '#7F8C8D' }
 };
+
+// ============================================================
+// IDENTIDAD VISUAL DE LA APP
+// ============================================================
+
+const DEFAULT_APP_LOGO = './assets/icons/icon-512.png';
+
+function getAppLogo() {
+    try {
+        return localStorage.getItem('appLogo') || DEFAULT_APP_LOGO;
+    } catch (error) {
+        return DEFAULT_APP_LOGO;
+    }
+}
+
+function setAppLogo(url) {
+    const logo = typeof url === 'string' && url.trim()
+        ? url.trim()
+        : DEFAULT_APP_LOGO;
+
+    try {
+        localStorage.setItem('appLogo', logo);
+    } catch (error) {
+        console.warn('No se pudo guardar el logo localmente:', error);
+    }
+
+    applyAppLogo(logo);
+    return logo;
+}
+
+function applyAppLogo(logo = getAppLogo()) {
+    if (!logo) return;
+
+    document.querySelectorAll('[data-app-logo]').forEach(el => {
+        if (el.tagName === 'IMG') {
+            el.src = logo;
+        } else {
+            el.style.backgroundImage = `url("${logo.replace(/"/g, '\\"')}")`;
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => applyAppLogo());
