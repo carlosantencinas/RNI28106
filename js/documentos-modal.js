@@ -1,10 +1,17 @@
 // ============================================================
-// DOCUMENTOS - Modal de adjuntos persistentes
+// DOCUMENTOS - Modal de adjuntos persistentes sin Firebase Storage
 // ============================================================
-// Sobrescribe el modal anterior sin modificar modals.js.
+// Compatible con Firebase Spark: los adjuntos pequeños se guardan
+// como Data URL dentro de su propio documento Firestore.
 
 (function () {
     'use strict';
+
+    // Firestore limita cada documento a ~1 MiB. Al guardar Base64,
+    // el archivo aumenta aproximadamente un 33%, por lo que dejamos
+    // margen para los metadatos y mantenemos un límite conservador.
+    const MAX_FILE_SIZE = 700 * 1024;
+    const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 
     const fallbackTypes = {
         seprec: { label: 'SEPREC', icon: '🏢' },
@@ -23,14 +30,22 @@
     }
 
     function getExistingAttachment(d) {
-        if (d?.archivoStorage?.url) return d.archivoStorage;
-        if (typeof d?.archivo === 'string' && d.archivo.startsWith('http')) {
-            return { url: d.archivo, nombre: d.nombreArchivo || '', legacy: true };
-        }
         if (typeof d?.archivo === 'string' && d.archivo.startsWith('data:')) {
             return { url: d.archivo, nombre: d.nombreArchivo || '', legacy: true };
         }
+        if (typeof d?.archivo === 'string' && d.archivo.startsWith('http')) {
+            return { url: d.archivo, nombre: d.nombreArchivo || '', legacy: true };
+        }
         return null;
+    }
+
+    function readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+            reader.readAsDataURL(file);
+        });
     }
 
     window.openDocModal = async function (doc) {
@@ -38,8 +53,7 @@
         const d = doc ? { ...doc } : {
             id: uid(), tipo: 'seprec', nombre: '', numero: '',
             fechaEmision: new Date().toISOString().slice(0, 10),
-            fechaVencimiento: '', archivo: null, nombreArchivo: '',
-            archivoStorage: null, observaciones: ''
+            fechaVencimiento: '', archivo: null, nombreArchivo: '', observaciones: ''
         };
         const existing = getExistingAttachment(d);
         const overlay = document.createElement('div');
@@ -79,7 +93,7 @@
                         ${existing ? `📎 Archivo actual: <b>${esc(existing.nombre || d.nombreArchivo || 'Adjunto')}</b>` : '📎 Sin archivo adjunto'}
                     </div>
                     <button type="button" class="btn btn-sm btn-danger" id="doc-remove-file" style="margin-top:7px;${existing ? '' : 'display:none;'}">Quitar archivo</button>
-                    <div style="font-size:11px;color:var(--text-soft);margin-top:4px;">PDF, JPG o PNG · máximo 15 MB · almacenamiento persistente en Firebase.</div>
+                    <div style="font-size:11px;color:var(--text-soft);margin-top:4px;">PDF, JPG o PNG · máximo 700 KB por archivo · Firebase gratuito.</div>
                 </div>
                 <div class="field"><label>Observaciones</label><textarea id="doc-observaciones" rows="3">${esc(d.observaciones || '')}</textarea></div>
             </div>
@@ -91,6 +105,7 @@
         document.body.appendChild(overlay);
 
         let selectedFile = null;
+        let selectedDataUrl = null;
         let currentAttachment = existing;
         let removeAttachment = false;
         const input = overlay.querySelector('#doc-archivo');
@@ -101,20 +116,26 @@
         input.onchange = e => {
             const file = e.target.files?.[0];
             if (!file) return;
-            if (file.size > 15 * 1024 * 1024) {
-                toast('⚠️ El archivo no puede superar los 15 MB.'); input.value = ''; return;
+            if (file.size > MAX_FILE_SIZE) {
+                toast('⚠️ Para mantener Firebase gratuito, el archivo no puede superar 700 KB.');
+                input.value = '';
+                return;
             }
-            if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
-                toast('⚠️ Solo se permiten PDF, JPG o PNG.'); input.value = ''; return;
+            if (!ALLOWED_TYPES.includes(file.type)) {
+                toast('⚠️ Solo se permiten PDF, JPG o PNG.');
+                input.value = '';
+                return;
             }
             selectedFile = file;
+            selectedDataUrl = null;
             removeAttachment = false;
-            status.innerHTML = `📎 Nuevo archivo: <b>${esc(file.name)}</b> · ${(file.size / 1048576).toFixed(2)} MB`;
+            status.innerHTML = `📎 Nuevo archivo: <b>${esc(file.name)}</b> · ${(file.size / 1024).toFixed(1)} KB`;
             removeBtn.style.display = '';
         };
 
         removeBtn.onclick = () => {
             selectedFile = null;
+            selectedDataUrl = null;
             input.value = '';
             removeAttachment = true;
             status.textContent = '📎 Sin archivo adjunto';
@@ -129,19 +150,20 @@
         saveBtn.onclick = async () => {
             const nombre = overlay.querySelector('#doc-nombre').value.trim();
             if (!nombre) { toast('Ingresa un nombre para el documento.'); return; }
-            saveBtn.disabled = true; saveBtn.textContent = 'Guardando…';
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Guardando…';
 
             try {
                 if (selectedFile) {
-                    if (typeof uploadDocumentFile !== 'function') throw new Error('No está cargado el módulo de almacenamiento.');
-                    toast('⏳ Subiendo archivo…');
-                    const uploaded = await uploadDocumentFile(selectedFile, d.id);
-                    if (currentAttachment?.path && typeof deleteDocumentFile === 'function') {
-                        await deleteDocumentFile(currentAttachment);
-                    }
-                    currentAttachment = uploaded;
+                    toast('⏳ Preparando archivo…');
+                    selectedDataUrl = await readFileAsDataURL(selectedFile);
+                    currentAttachment = {
+                        url: selectedDataUrl,
+                        nombre: selectedFile.name,
+                        tipo: selectedFile.type,
+                        size: selectedFile.size
+                    };
                 } else if (removeAttachment) {
-                    if (currentAttachment?.path && typeof deleteDocumentFile === 'function') await deleteDocumentFile(currentAttachment);
                     currentAttachment = null;
                 }
 
@@ -154,7 +176,8 @@
                     fechaVencimiento: overlay.querySelector('#doc-fecha-vencimiento').value || '',
                     archivo: currentAttachment?.url || null,
                     nombreArchivo: currentAttachment?.nombre || '',
-                    archivoStorage: currentAttachment?.path ? currentAttachment : null,
+                    archivoTipo: currentAttachment?.tipo || '',
+                    archivoSize: currentAttachment?.size || 0,
                     observaciones: overlay.querySelector('#doc-observaciones').value.trim()
                 };
 
@@ -162,14 +185,18 @@
                 else S.documentos = S.documentos.map(x => x.id === nuevo.id ? nuevo : x);
 
                 const ok = await saveDocumentos(S.user?.uid);
-                if (!ok && typeof cloudReady !== 'undefined' && cloudReady) throw new Error('Firebase no confirmó el guardado del documento.');
+                if (!ok && typeof cloudReady !== 'undefined' && cloudReady) {
+                    throw new Error('Firebase no confirmó el guardado del documento.');
+                }
 
-                close(); render();
+                close();
+                render();
                 toast(isNew ? '✅ Documento y archivo guardados.' : '✅ Documento actualizado.');
             } catch (error) {
                 console.error('Error guardando documento:', error);
                 toast('❌ ' + (error.message || 'No se pudo guardar el documento.'));
-                saveBtn.disabled = false; saveBtn.textContent = isNew ? 'Guardar documento' : 'Actualizar documento';
+                saveBtn.disabled = false;
+                saveBtn.textContent = isNew ? 'Guardar documento' : 'Actualizar documento';
             }
         };
     };
