@@ -3,11 +3,13 @@
 // Capa de dominio: reglas y mutaciones de pagos sin UI.
 // ============================================================
 
+// IMPORTANTE: S vive como const global del script (state.js),
+// no como window.S. Por eso este servicio usa S directamente.
 (function (global) {
     'use strict';
 
     function list() {
-        return Array.isArray(global.S?.pagos) ? global.S.pagos : [];
+        return Array.isArray(S.pagos) ? S.pagos : [];
     }
 
     function findById(pagoId) {
@@ -65,7 +67,7 @@
 
         const cotizacionId = principal.cotizacionId;
         const before = list().length;
-        global.S.pagos = list().filter(p =>
+        S.pagos = list().filter(p =>
             String(p?.id) !== String(pagoId) &&
             String(p?.cotizacionId) !== String(cotizacionId)
         );
@@ -73,7 +75,7 @@
         return {
             ok: true,
             removed: principal,
-            removedCount: before - global.S.pagos.length,
+            removedCount: before - S.pagos.length,
             cotizacionId
         };
     }
