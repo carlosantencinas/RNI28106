@@ -35,10 +35,14 @@ function render() {
         default: main.innerHTML = viewDashboard(); break;
     }
 
-    // ========== IMPORTANTE: BIND APP EVENTS ==========
     if (typeof bindAppEvents === 'function') {
         bindAppEvents();
     } else {
         console.warn('bindAppEvents no está definida. Verifica que app.js se cargó correctamente.');
+    }
+
+    // Sincroniza la UI con el resumen financiero centralizado.
+    if (S.view === 'dashboard' && typeof syncDashboardPaymentCards === 'function') {
+        setTimeout(syncDashboardPaymentCards, 0);
     }
 }
