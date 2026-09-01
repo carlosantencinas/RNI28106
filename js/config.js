@@ -41,13 +41,21 @@ const TIPOS_ACTIVIDAD = {
     otro: { label: '📌 Otro', icon: '📌', color: '#7F8C8D' }
 };
 
+// ============================================================
+// TIPOS DE DOCUMENTOS ADMINISTRATIVOS
+// ============================================================
 const TIPOS_DOCUMENTOS = {
-    seprec: { label: '📋 SEPREC', icon: '📋', color: '#2E86C1' },
-    nit: { label: '🏛️ NIT', icon: '🏛️', color: '#27AE60' },
-    rni: { label: '📜 RNI', icon: '📜', color: '#8E44AD' },
-    licencia: { label: '📄 Licencia', icon: '📄', color: '#E67E22' },
-    matricula: { label: '🎓 Matrícula', icon: '🎓', color: '#1A4A5C' },
-    otro: { label: '📁 Otro', icon: '📁', color: '#7F8C8D' }
+    seprec: { label: 'SEPREC', icon: '🏢', color: '#2E86C1' },
+    nit: { label: 'NIT', icon: '🧾', color: '#27AE60' },
+    rni: { label: 'RNI', icon: '🎓', color: '#8E44AD' },
+    licencia: { label: 'Licencia', icon: '📄', color: '#E67E22' },
+    matricula: { label: 'Matrícula profesional', icon: '🎓', color: '#1A4A5C' },
+    soat: { label: 'SOAT', icon: '🚗', color: '#2E86C1' },
+    ruat: { label: 'RUAT / CRPVA', icon: '🚙', color: '#27AE60' },
+    carnetIdentidad: { label: 'Carnet de identidad', icon: '🪪', color: '#8E44AD' },
+    carnetProfesional: { label: 'Carnet profesional', icon: '🎫', color: '#E67E22' },
+    inspeccionTecnica: { label: 'Inspección técnica vehicular', icon: '🔧', color: '#1A4A5C' },
+    otro: { label: 'Otro', icon: '📁', color: '#7F8C8D' }
 };
 
 // ============================================================
@@ -57,37 +65,23 @@ const TIPOS_DOCUMENTOS = {
 const DEFAULT_APP_LOGO = './assets/icons/icon-512.png';
 
 function getAppLogo() {
-    try {
-        return localStorage.getItem('appLogo') || DEFAULT_APP_LOGO;
-    } catch (error) {
-        return DEFAULT_APP_LOGO;
-    }
+    try { return localStorage.getItem('appLogo') || DEFAULT_APP_LOGO; }
+    catch (error) { return DEFAULT_APP_LOGO; }
 }
 
 function setAppLogo(url) {
-    const logo = typeof url === 'string' && url.trim()
-        ? url.trim()
-        : DEFAULT_APP_LOGO;
-
-    try {
-        localStorage.setItem('appLogo', logo);
-    } catch (error) {
-        console.warn('No se pudo guardar el logo localmente:', error);
-    }
-
+    const logo = typeof url === 'string' && url.trim() ? url.trim() : DEFAULT_APP_LOGO;
+    try { localStorage.setItem('appLogo', logo); }
+    catch (error) { console.warn('No se pudo guardar el logo localmente:', error); }
     applyAppLogo(logo);
     return logo;
 }
 
 function applyAppLogo(logo = getAppLogo()) {
     if (!logo) return;
-
     document.querySelectorAll('[data-app-logo]').forEach(el => {
-        if (el.tagName === 'IMG') {
-            el.src = logo;
-        } else {
-            el.style.backgroundImage = `url("${logo.replace(/"/g, '\\"')}")`;
-        }
+        if (el.tagName === 'IMG') el.src = logo;
+        else el.style.backgroundImage = `url("${logo.replace(/"/g, '\\"')}")`;
     });
 }
 
