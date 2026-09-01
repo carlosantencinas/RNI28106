@@ -9,6 +9,8 @@
 
     const originalRender = global.render;
 
+    // S fue declarado con const en state.js, por lo que NO forma parte de
+    // window. Dentro de este script se usa directamente S, no global.S.
     function getDocumentPanelFromAdministrative() {
         if (typeof global.viewAdministrativo !== 'function') return null;
 
@@ -55,7 +57,7 @@
         button.dataset.nav = 'documentos';
         button.innerHTML = `${global.ICONS?.folder || '📁'}<span>Documentos</span>`;
         button.onclick = () => {
-            global.S.view = 'documentos';
+            S.view = 'documentos';
             global.render();
         };
 
@@ -80,11 +82,11 @@
         if (docKpi) {
             docKpi.innerHTML = `
                 <div class="label">📄 Documentos</div>
-                <div class="val">${Array.isArray(global.S?.documentos) ? global.S.documentos.length : 0}</div>
+                <div class="val">${Array.isArray(S?.documentos) ? S.documentos.length : 0}</div>
                 <div class="sub">Gestionar en Documentos →</div>`;
             docKpi.style.cursor = 'pointer';
             docKpi.onclick = () => {
-                global.S.view = 'documentos';
+                S.view = 'documentos';
                 global.render();
             };
         }
@@ -95,7 +97,7 @@
 
     function getAssociatedPartialPayments(principal) {
         if (!principal) return [];
-        const all = Array.isArray(global.S?.pagos) ? global.S.pagos : [];
+        const all = Array.isArray(S?.pagos) ? S.pagos : [];
         let associated = all.filter(p =>
             String(p?.id) !== String(principal.id) &&
             String(p?.cotizacionId) === String(principal.cotizacionId) &&
@@ -117,14 +119,14 @@
 
     function createPartialHistoryRow(principal, parentRow) {
         const existing = parentRow.nextElementSibling;
-        if (existing?.dataset?.adminPagoDetalle === principal.id) {
+        if (existing?.dataset?.adminPagoDetalle === String(principal.id)) {
             existing.remove();
             return;
         }
 
         const partials = getAssociatedPartialPayments(principal);
         const tr = document.createElement('tr');
-        tr.dataset.adminPagoDetalle = principal.id;
+        tr.dataset.adminPagoDetalle = String(principal.id);
         tr.innerHTML = `
             <td colspan="9" style="padding:0;background:var(--surface-hover);">
                 <div style="padding:14px 18px;border-top:2px solid var(--primary);border-bottom:1px solid var(--border);">
@@ -169,13 +171,13 @@
 
     function enhanceAdminPayments() {
         const main = document.getElementById('main');
-        if (!main || global.S?.view !== 'administrativo') return;
+        if (!main || S?.view !== 'administrativo') return;
 
         // Pagos pendientes: añade el botón de historial desplegable.
         main.querySelectorAll('[data-register-pago]').forEach(registerBtn => {
             const row = registerBtn.closest('tr');
             const id = registerBtn.dataset.registerPago;
-            const pago = global.S.pagos.find(p => String(p.id) === String(id));
+            const pago = S.pagos.find(p => String(p.id) === String(id));
             if (!row || !pago || row.querySelector('.admin-toggle-partials')) return;
 
             const toggle = document.createElement('button');
@@ -184,48 +186,12 @@
             toggle.textContent = '▾';
             toggle.onclick = () => {
                 createPartialHistoryRow(pago, row);
-                toggle.textContent = row.nextElementSibling?.dataset?.adminPagoDetalle === pago.id ? '▴' : '▾';
+                toggle.textContent = row.nextElementSibling?.dataset?.adminPagoDetalle === String(pago.id) ? '▴' : '▾';
             };
 
             const actions = row.querySelector('.rowactions');
             if (actions) actions.insertBefore(toggle, actions.firstChild);
         });
-
-        // Historial cerrado: agrega acciones de edición/eliminación y detalle.
-        const closedRows = main.querySelectorAll('.panel h3');
-        const closedTitle = Array.from(closedRows).find(h => h.textContent.includes('Historial de pagos cerrados'));
-        if (closedTitle) {
-            const panel = closedTitle.closest('.panel');
-            const tbody = panel?.querySelector('tbody');
-            if (tbody) {
-                const closed = global.S.pagos.filter(p => {
-                    const saldo = Number(p.monto) - Number(p.montoPagado || 0);
-                    return saldo <= 0.01 && Number(p.monto) > 0;
-                }).sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || ''))).slice(0, 10);
-
-                Array.from(tbody.querySelectorAll('tr')).slice(0, closed.length).forEach((row, index) => {
-                    const pago = closed[index];
-                    if (!pago || row.querySelector('.admin-closed-actions')) return;
-                    const td = document.createElement('td');
-                    td.className = 'admin-closed-actions';
-                    td.innerHTML = `<div class="rowactions">
-                        <button class="iconbtn" title="Editar pago" data-id="${pago.id}">${global.ICONS?.edit || '✏️'}</button>
-                        <button class="iconbtn" title="Eliminar pago" data-id="${pago.id}">${global.ICONS?.trash || '🗑️'}</button>
-                    </div>`;
-                    td.querySelector('[title="Editar pago"]').onclick = () => global.editarPagoHistorial(pago.id);
-                    td.querySelector('[title="Eliminar pago"]').onclick = () => global.eliminarPagoHistorial(pago.id);
-                    row.appendChild(td);
-                });
-
-                const head = tbody.parentElement?.querySelector('thead tr');
-                if (head && !head.querySelector('.admin-closed-actions-head')) {
-                    const th = document.createElement('th');
-                    th.className = 'admin-closed-actions-head';
-                    th.textContent = 'Acciones';
-                    head.appendChild(th);
-                }
-            }
-        }
     }
 
     function enhancedRender() {
@@ -233,7 +199,7 @@
 
         addDocumentsNav();
 
-        if (global.S?.view === 'documentos') {
+        if (S?.view === 'documentos') {
             const main = document.getElementById('main');
             if (main) {
                 main.innerHTML = viewDocumentosSeparado();
@@ -242,7 +208,7 @@
             return;
         }
 
-        if (global.S?.view === 'administrativo') {
+        if (S?.view === 'administrativo') {
             hideDocumentsFromAdministrative();
             enhanceAdminPayments();
         }
