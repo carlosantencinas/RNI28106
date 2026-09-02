@@ -36,6 +36,9 @@ function render() {
 
     if (typeof bindAppEvents === 'function') bindAppEvents();
 
+    // Enlaza filtros después de pintar la vista financiera.
+    if (S.view === 'finanzas' && typeof bindFinanceFilters === 'function') bindFinanceFilters();
+
     // Post-procesado centralizado: ningún módulo vuelve a envolver render().
     if (S.view === 'administrativo' && typeof enhanceAdministrativeView === 'function') enhanceAdministrativeView();
     if (S.view === 'dashboard') {
