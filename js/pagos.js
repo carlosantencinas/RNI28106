@@ -92,9 +92,63 @@ function getResumenCotizacion(cotizacion) {
     };
 }
 
+/**
+ * Cartera financiera unificada.
+ * Incluye tanto cotizaciones como deudas creadas directamente desde
+ * Administrativo en S.pagos. Una deuda vinculada a una cotización se
+ * contabiliza una sola vez, usando la cotización como fuente principal.
+ */
+function getCarteraFinanciera() {
+    const cotizaciones = Array.isArray(S.cotizaciones) ? S.cotizaciones : [];
+    const pagos = Array.isArray(S.pagos) ? S.pagos : [];
+    const cotizacionIds = new Set(cotizaciones.map(c => String(c?.id)));
+    const rows = [];
+
+    cotizaciones.forEach(cotizacion => {
+        const resumen = getResumenCotizacion(cotizacion);
+        if (resumen.montoTotal <= 0 || resumen.saldoPendiente <= 0.01) return;
+        rows.push({
+            ...cotizacion,
+            ...resumen,
+            origen: 'cotizacion',
+            pagoPrincipalId: getPagoPrincipalByCotizacionId(cotizacion.id)?.id || null
+        });
+    });
+
+    pagos.filter(p => Number(p?.monto) > 0).forEach(p => {
+        const cotizacionId = p?.cotizacionId;
+        if (cotizacionId && cotizacionIds.has(String(cotizacionId))) return;
+
+        const montoTotal = normalizePagoMonto(p.monto);
+        const totalPagado = normalizePagoMonto(p.montoPagado);
+        const saldoPendiente = Math.max(0, montoTotal - totalPagado);
+        if (saldoPendiente <= 0.01) return;
+
+        rows.push({
+            ...p,
+            id: p.cotizacionId || `pago-${p.id}`,
+            cliente: p.cliente || p.entidad || '',
+            titulo: p.descripcion || p.concepto || p.nombre || 'Pago por cobrar',
+            proyecto: p.proyecto || '',
+            fecha: p.fecha || p.fechaCreacion || '',
+            montoTotal,
+            totalPagado,
+            saldoPendiente,
+            porcentaje: montoTotal > 0 ? Math.min(100, (totalPagado / montoTotal) * 100) : 0,
+            estado: totalPagado > 0 ? 'parcial' : 'pendiente',
+            pagos: getPagosRegistradosByCotizacionId(cotizacionId),
+            origen: 'pago'
+        });
+    });
+
+    return rows.sort((a, b) => Number(b.saldoPendiente || 0) - Number(a.saldoPendiente || 0));
+}
+
 /** Resumen global. No modifica S.pagos ni S.cotizaciones. */
 function getResumenPagos() {
     const cotizaciones = Array.isArray(S.cotizaciones) ? S.cotizaciones : [];
+    const pagos = Array.isArray(S.pagos) ? S.pagos : [];
+    const cotizacionIds = new Set(cotizaciones.map(c => String(c?.id)));
 
     let totalFacturado = 0;
     let totalCobrado = 0;
@@ -107,11 +161,34 @@ function getResumenPagos() {
         const resumen = getResumenCotizacion(cotizacion);
         totalFacturado += resumen.montoTotal;
         totalCobrado += resumen.totalPagado;
-        totalPorCobrar += resumen.saldoPendiente;
 
-        if (resumen.estado === 'pagado') deudasPagadas++;
-        else if (resumen.estado === 'parcial') deudasParciales++;
-        else if (resumen.estado === 'pendiente') deudasPendientes++;
+        if (resumen.saldoPendiente > 0.01) {
+            totalPorCobrar += resumen.saldoPendiente;
+            if (resumen.estado === 'parcial') deudasParciales++;
+            else if (resumen.estado === 'pendiente') deudasPendientes++;
+        } else if (resumen.montoTotal > 0) {
+            deudasPagadas++;
+        }
+    });
+
+    // Deudas que existen en Administrativo pero no en S.cotizaciones.
+    pagos.filter(p => Number(p?.monto) > 0).forEach(p => {
+        const cotizacionId = p?.cotizacionId;
+        if (cotizacionId && cotizacionIds.has(String(cotizacionId))) return;
+
+        const monto = normalizePagoMonto(p.monto);
+        const pagado = normalizePagoMonto(p.montoPagado);
+        const saldo = Math.max(0, monto - pagado);
+        totalFacturado += monto;
+        totalCobrado += pagado;
+
+        if (saldo > 0.01) {
+            totalPorCobrar += saldo;
+            if (pagado > 0) deudasParciales++;
+            else deudasPendientes++;
+        } else if (monto > 0) {
+            deudasPagadas++;
+        }
     });
 
     return {
@@ -120,7 +197,8 @@ function getResumenPagos() {
         totalPorCobrar,
         deudasPendientes,
         deudasParciales,
-        deudasPagadas
+        deudasPagadas,
+        cartera: getCarteraFinanciera()
     };
 }
 
