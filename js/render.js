@@ -41,6 +41,7 @@ function render() {
 
     // Post-procesado centralizado: ningún módulo vuelve a envolver render().
     if (S.view === 'administrativo' && typeof enhanceAdministrativeView === 'function') enhanceAdministrativeView();
+    if (S.view === 'finanzas' && typeof enhanceFinanceView === 'function') enhanceFinanceView();
     if (S.view === 'dashboard') {
         if (typeof syncDashboardPaymentCards === 'function') syncDashboardPaymentCards();
         if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
