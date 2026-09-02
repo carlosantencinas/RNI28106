@@ -1,91 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#1A4A5C">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Ing. Antequera">
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1A4A5C"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Ing. Antequera">
     <title>Ing. Antequera — Suite Profesional</title>
-    <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="./assets/icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="192x192" href="./assets/icons/icon-192.png">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.2/firebase-app-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.2/firebase-auth-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.2/firebase-firestore-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon.png"><link rel="icon" type="image/png" sizes="192x192" href="./assets/icons/icon-192.png"><link rel="apple-touch-icon" sizes="192x192" href="./assets/icons/icon-192.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.2/firebase-app-compat.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.2/firebase-auth-compat.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.2/firebase-firestore-compat.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div id="login-container" class="login-container">
-        <div class="login-box">
-            <h2>Ing. Antequera</h2>
-            <p class="sub">Suite Profesional — Hidráulica · Hidrología</p>
-            <div id="login-error" class="error"></div>
-            <form id="login-form" action="javascript:void(0)">
-                <div class="field"><label for="login-email">Correo electrónico</label><input type="email" id="login-email" placeholder="tu@email.com" autocomplete="email" required></div>
-                <div class="field"><label for="login-password">Contraseña</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" required></div>
-                <button type="submit" class="btn btn-primary" id="btn-login">Iniciar sesión</button>
-                <div class="toggle-link">¿No tienes cuenta? <a id="goto-register">Regístrate aquí</a></div>
-                <div class="forgot-password"><a id="goto-reset">¿Olvidaste tu contraseña?</a></div>
-            </form>
-            <form id="register-form" action="javascript:void(0)" style="display:none;">
-                <div class="field"><label for="register-email">Correo electrónico</label><input type="email" id="register-email" placeholder="tu@email.com" autocomplete="email" required></div>
-                <div class="field"><label for="register-password">Contraseña</label><input type="password" id="register-password" placeholder="•••••••• (mínimo 6 caracteres)" autocomplete="new-password" required minlength="6"></div>
-                <button type="submit" class="btn btn-primary" id="btn-register">Crear cuenta</button>
-                <div class="toggle-link">¿Ya tienes cuenta? <a id="goto-login">Inicia sesión aquí</a></div>
-            </form>
-            <form id="reset-form" action="javascript:void(0)" style="display:none;">
-                <div class="field"><label for="reset-email">Correo electrónico</label><input type="email" id="reset-email" placeholder="tu@email.com" autocomplete="email" required></div>
-                <button type="submit" class="btn btn-primary" id="btn-reset">Enviar correo de recuperación</button>
-                <div class="toggle-link"><a id="goto-login-reset">Volver al inicio de sesión</a></div>
-            </form>
-            <div class="firebase-config">
-                <h4>🔌 Configurar Firebase</h4>
-                <div class="hint">Pega aquí tu configuración de Firebase (Firebase Console → Configuración del proyecto → Tus aplicaciones → Configuración del SDK)</div>
-                <textarea id="firebase-config-input" placeholder='{"apiKey":"AIzaSy...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'></textarea>
-                <div class="status" id="firebase-status"><span class="dot off" id="status-dot"></span><span id="status-text">No configurado</span></div>
-                <button class="btn btn-primary" id="btn-connect-firebase">🔗 Conectar Firebase</button>
-                <button class="btn btn-ghost btn-sm" id="btn-disconnect-firebase" style="margin-top:4px;">Desconectar</button>
-            </div>
-        </div>
-    </div>
-    <div id="app-container">
-        <aside id="sidebar">
-            <div class="brand"><div class="brand-stamp" id="brand-stamp">CAE</div><div class="brand-txt"><div class="t1">Ing. Antequera</div><div class="t2">Hidráulica · Hidrología</div></div></div>
-            <nav id="nav"></nav>
-            <div class="nav-user"><div class="email" id="user-email">usuario@email.com</div><button class="logout-btn" id="btn-logout">Cerrar sesión</button></div>
-            <div class="nav-foot mono">RNI 28.106 · v3.3</div>
-        </aside>
-        <main id="main"></main>
-    </div>
-    <div id="toast"></div>
-    <script src="js/config.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/state.js"></script>
-    <script src="js/firebase.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/filters.js"></script>
-    <script src="js/exports.js"></script>
-    <script src="js/views.js"></script>
-    <script src="js/modals.js"></script>
-    <script src="js/pagos.js"></script>
-    <script src="js/services/pagos.service.js"></script>
-    <script src="js/dashboard-payments.js"></script>
-    <script src="js/dashboard-experience-v2.js"></script>
-    <script src="js/documentos-modal.js"></script>
-    <script src="js/render.js"></script>
-    <script src="js/app.js"></script>
-    <script src="js/services/pagos.controller.js"></script>
-    <script src="js/admin-ui-enhancements.js"></script>
-    <script src="js/dashboard-alerts.js"></script>
-    <script src="js/dashboard-finanzas.js"></script>
-</body>
-</html>
+<div id="login-container" class="login-container"><div class="login-box"><h2>Ing. Antequera</h2><p class="sub">Suite Profesional — Hidráulica · Hidrología</p><div id="login-error" class="error"></div>
+<form id="login-form" action="javascript:void(0)"><div class="field"><label for="login-email">Correo electrónico</label><input type="email" id="login-email" placeholder="tu@email.com" autocomplete="email" required></div><div class="field"><label for="login-password">Contraseña</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" required></div><button type="submit" class="btn btn-primary" id="btn-login">Iniciar sesión</button><div class="toggle-link">¿No tienes cuenta? <a id="goto-register">Regístrate aquí</a></div><div class="forgot-password"><a id="goto-reset">¿Olvidaste tu contraseña?</a></div></form>
+<form id="register-form" action="javascript:void(0)" style="display:none;"><div class="field"><label for="register-email">Correo electrónico</label><input type="email" id="register-email" placeholder="tu@email.com" autocomplete="email" required></div><div class="field"><label for="register-password">Contraseña</label><input type="password" id="register-password" placeholder="•••••••• (mínimo 6 caracteres)" autocomplete="new-password" required minlength="6"></div><button type="submit" class="btn btn-primary" id="btn-register">Crear cuenta</button><div class="toggle-link">¿Ya tienes cuenta? <a id="goto-login">Inicia sesión aquí</a></div></form>
+<form id="reset-form" action="javascript:void(0)" style="display:none;"><div class="field"><label for="reset-email">Correo electrónico</label><input type="email" id="reset-email" placeholder="tu@email.com" autocomplete="email" required></div><button type="submit" class="btn btn-primary" id="btn-reset">Enviar correo de recuperación</button><div class="toggle-link"><a id="goto-login-reset">Volver al inicio de sesión</a></div></form>
+<div class="firebase-config"><h4>🔌 Configurar Firebase</h4><div class="hint">Pega aquí tu configuración de Firebase (Firebase Console → Configuración del proyecto → Tus aplicaciones → Configuración del SDK)</div><textarea id="firebase-config-input" placeholder='{"apiKey":"AIzaSy...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'></textarea><div class="status" id="firebase-status"><span class="dot off" id="status-dot"></span><span id="status-text">No configurado</span></div><button class="btn btn-primary" id="btn-connect-firebase">🔗 Conectar Firebase</button><button class="btn btn-ghost btn-sm" id="btn-disconnect-firebase" style="margin-top:4px;">Desconectar</button></div></div></div>
+<div id="app-container"><aside id="sidebar"><div class="brand"><div class="brand-stamp" id="brand-stamp">CAE</div><div class="brand-txt"><div class="t1">Ing. Antequera</div><div class="t2">Hidráulica · Hidrología</div></div></div><nav id="nav"></nav><div class="nav-user"><div class="email" id="user-email">usuario@email.com</div><button class="logout-btn" id="btn-logout">Cerrar sesión</button></div><div class="nav-foot mono">RNI 28.106 · v3.3</div></aside><main id="main"></main></div><div id="toast"></div>
+<script src="js/config.js"></script><script src="js/utils.js"></script><script src="js/state.js"></script><script src="js/firebase.js"></script><script src="js/auth.js"></script><script src="js/filters.js"></script><script src="js/exports.js"></script><script src="js/views.js"></script><script src="js/modals.js"></script><script src="js/pagos.js"></script><script src="js/services/pagos.service.js"></script><script src="js/dashboard-payments.js"></script><script src="js/dashboard-experience-v2.js"></script><script src="js/documentos-modal.js"></script><script src="js/render.js"></script><script src="js/app.js"></script><script src="js/services/pagos.controller.js"></script><script src="js/admin-ui-enhancements.js"></script><script src="js/dashboard-alerts.js"></script><script src="js/dashboard-finanzas.js"></script><script src="js/finanzas.js"></script>
+</body></html>
