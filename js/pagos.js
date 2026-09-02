@@ -50,6 +50,16 @@ function getTotalPagadoByCotizacionId(cotizacionId) {
 
 function getMontoTotalDeuda(cotizacion) {
     if (!cotizacion) return 0;
+
+    // Si Administrativo creó el registro de deuda asociado a esta
+    // cotización, el monto del registro de pago es la fuente financiera
+    // principal. Así se mantiene sincronizado el Centro Financiero con
+    // la deuda que realmente aparece en Administrativo.
+    const principal = getPagoPrincipalByCotizacionId(cotizacion.id);
+    if (principal && Number(principal.monto) > 0) {
+        return normalizePagoMonto(principal.monto);
+    }
+
     return normalizePagoMonto(
         cotizacion.montoTotal ?? cotizacion.total ?? cotizacion.monto
     );
@@ -94,9 +104,8 @@ function getResumenCotizacion(cotizacion) {
 
 /**
  * Cartera financiera unificada.
- * Incluye tanto cotizaciones como deudas creadas directamente desde
- * Administrativo en S.pagos. Una deuda vinculada a una cotización se
- * contabiliza una sola vez, usando la cotización como fuente principal.
+ * Incluye cotizaciones y deudas creadas directamente desde Administrativo.
+ * Una deuda vinculada a una cotización se contabiliza una sola vez.
  */
 function getCarteraFinanciera() {
     const cotizaciones = Array.isArray(S.cotizaciones) ? S.cotizaciones : [];
@@ -107,14 +116,16 @@ function getCarteraFinanciera() {
     cotizaciones.forEach(cotizacion => {
         const resumen = getResumenCotizacion(cotizacion);
         if (resumen.montoTotal <= 0 || resumen.saldoPendiente <= 0.01) return;
+        const principal = getPagoPrincipalByCotizacionId(cotizacion.id);
         rows.push({
             ...cotizacion,
             ...resumen,
-            origen: 'cotizacion',
-            pagoPrincipalId: getPagoPrincipalByCotizacionId(cotizacion.id)?.id || null
+            origen: principal ? 'pago-administrativo' : 'cotizacion',
+            pagoPrincipalId: principal?.id || null
         });
     });
 
+    // Deudas de Administrativo sin cotización equivalente.
     pagos.filter(p => Number(p?.monto) > 0).forEach(p => {
         const cotizacionId = p?.cotizacionId;
         if (cotizacionId && cotizacionIds.has(String(cotizacionId))) return;
@@ -171,7 +182,7 @@ function getResumenPagos() {
         }
     });
 
-    // Deudas que existen en Administrativo pero no en S.cotizaciones.
+    // Deudas de Administrativo que no tienen cotización equivalente.
     pagos.filter(p => Number(p?.monto) > 0).forEach(p => {
         const cotizacionId = p?.cotizacionId;
         if (cotizacionId && cotizacionIds.has(String(cotizacionId))) return;
