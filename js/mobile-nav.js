@@ -67,8 +67,9 @@
                     border:1px solid #D9D6CE !important; border-radius:8px !important;
                     background:#fff !important; color:#1E1E1E !important;
                     font:600 13px Inter,system-ui,sans-serif !important;
-                    appearance:auto !important; -webkit-appearance:auto !important;
+                    appearance:menulist-button !important; -webkit-appearance: menulist-button !important;
                     box-sizing:border-box !important;
+                    position:relative !important; z-index:2200 !important; touch-action:auto !important; pointer-events:auto !important;
                 }
                 #main {
                     width:100% !important; min-width:0 !important; margin:0 !important;
