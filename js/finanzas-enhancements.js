@@ -13,13 +13,8 @@
         catch (_) { return String(v); }
     };
 
-    function pagoEsPrincipal(p) {
-        return Number(p?.monto) > 0;
-    }
+    function pagoEsPrincipal(p) { return Number(p?.monto) > 0; }
 
-    // Cada cobro aparece una sola vez. Si una deuda tiene registros de
-    // pago parcial, estos son los movimientos de caja; el montoPagado del
-    // principal no se vuelve a sumar para evitar doble conteo.
     function getMovimientosCobro() {
         const pagos = Array.isArray(S.pagos) ? S.pagos : [];
         const movimientos = [];
@@ -29,35 +24,22 @@
         pagos.filter(p => !pagoEsPrincipal(p) && Number(p?.montoPagado) > 0).forEach(p => {
             if (p?.cotizacionId) idsConParciales.add(String(p.cotizacionId));
             movimientos.push({
-                id: p.id,
-                fecha: p.fecha || p.fechaCreacion || '',
-                monto: Number(p.montoPagado) || 0,
-                cliente: p.cliente || '',
-                descripcion: p.descripcion || p.concepto || 'Pago parcial',
-                metodo: p.metodoPago || '',
-                comprobante: p.comprobante || '',
-                cotizacionId: p.cotizacionId || ''
+                id: p.id, fecha: p.fecha || p.fechaCreacion || '', monto: Number(p.montoPagado) || 0,
+                cliente: p.cliente || '', descripcion: p.descripcion || p.concepto || 'Pago parcial',
+                metodo: p.metodoPago || '', comprobante: p.comprobante || '', cotizacionId: p.cotizacionId || ''
             });
         });
 
         principales.forEach(p => {
-            // Si existen pagos parciales asociados, el servicio financiero
-            // considera esos registros como fuente del total pagado.
             if (p?.cotizacionId && idsConParciales.has(String(p.cotizacionId))) return;
             const monto = Number(p.montoPagado) || 0;
             if (monto <= 0) return;
             movimientos.push({
-                id: `principal-${p.id}`,
-                fecha: p.fecha || p.fechaCreacion || '',
-                monto,
-                cliente: p.cliente || p.entidad || '',
-                descripcion: p.descripcion || p.concepto || 'Cobro',
-                metodo: p.metodoPago || '',
-                comprobante: p.comprobante || '',
-                cotizacionId: p.cotizacionId || ''
+                id: `principal-${p.id}`, fecha: p.fecha || p.fechaCreacion || '', monto,
+                cliente: p.cliente || p.entidad || '', descripcion: p.descripcion || p.concepto || 'Cobro',
+                metodo: p.metodoPago || '', comprobante: p.comprobante || '', cotizacionId: p.cotizacionId || ''
             });
         });
-
         return movimientos.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
     }
 
@@ -129,10 +111,7 @@
         const rows = getMovimientosFiltrados();
         if (!rows.length) { if (typeof toast === 'function') toast('⚠️ No hay movimientos para exportar.'); return; }
         if (!global.XLSX) { if (typeof toast === 'function') toast('⚠️ La librería de Excel aún está cargando.'); return; }
-        const data = rows.map(p => ({
-            Fecha: p.fecha || '', Cliente: p.cliente || '', Concepto: p.descripcion || '',
-            'Método de pago': p.metodo || '', Comprobante: p.comprobante || '', Monto_Bs: Number(p.monto)||0
-        }));
+        const data = rows.map(p => ({Fecha:p.fecha||'',Cliente:p.cliente||'',Concepto:p.descripcion||'','Método de pago':p.metodo||'',Comprobante:p.comprobante||'',Monto_Bs:Number(p.monto)||0}));
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Historial de cobros');
@@ -151,6 +130,24 @@
         main.appendChild(marker);
         updateFilteredKpis();
     }
+
+    // Carga diferida del módulo de historial mensual de pagos recurrentes.
+    // Así evitamos agregar otro <script> al HTML y mantenemos el render limpio.
+    let pagosFijosLoader = null;
+    global.syncPagosFijosEnhanced = async function () {
+        if (typeof global.__syncPagosFijosEnhancedReal === 'function') return global.__syncPagosFijosEnhancedReal();
+        if (!pagosFijosLoader) {
+            pagosFijosLoader = new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'js/pagos-fijos-enhancements.js';
+                s.onload = () => resolve();
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+        try { await pagosFijosLoader; if (typeof global.__syncPagosFijosEnhancedReal === 'function') return global.__syncPagosFijosEnhancedReal(); }
+        catch (e) { console.warn('No se pudo cargar el historial de pagos recurrentes:', e); }
+    };
 
     global.enhanceFinanceView = enhanceFinanceView;
     global.exportFinanceHistory = exportFinanceHistory;
