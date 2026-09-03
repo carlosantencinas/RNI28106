@@ -35,17 +35,20 @@ function render() {
     }
 
     if (typeof bindAppEvents === 'function') bindAppEvents();
-
-    // Enlaza filtros después de pintar la vista financiera.
     if (S.view === 'finanzas' && typeof bindFinanceFilters === 'function') bindFinanceFilters();
 
-    // Post-procesado centralizado: ningún módulo vuelve a envolver render().
     if (S.view === 'administrativo' && typeof enhanceAdministrativeView === 'function') enhanceAdministrativeView();
     if (S.view === 'finanzas' && typeof enhanceFinanceView === 'function') enhanceFinanceView();
+
     if (S.view === 'dashboard') {
         if (typeof syncDashboardPaymentCards === 'function') syncDashboardPaymentCards();
         if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
         if (typeof syncDashboardFinancialView === 'function') syncDashboardFinancialView();
         if (typeof syncPagosFijosDashboard === 'function') syncPagosFijosDashboard();
+    }
+
+    // Historial mensual de pagos recurrentes.
+    if ((S.view === 'dashboard' || S.view === 'finanzas') && typeof syncPagosFijosEnhanced === 'function') {
+        syncPagosFijosEnhanced();
     }
 }
