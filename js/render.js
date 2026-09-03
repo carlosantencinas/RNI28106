@@ -41,7 +41,12 @@ function ensureUICompatibilityStyles() {
             #sidebar #nav.ios-nav .nav-group { display:none; }
             #sidebar #nav.ios-nav #ios-nav-selector { display:block; width:100%; box-sizing:border-box; }
             #sidebar #nav.ios-nav .ios-nav-label { display:block; margin:0 0 7px; font-size:11px; font-weight:700; color:var(--text-soft); text-transform:uppercase; letter-spacing:.04em; }
-            #sidebar #nav.ios-nav select { width:100%; min-height:44px; padding:10px 38px 10px 13px; border:1px solid var(--border); border-radius:9px; background:#fff; color:var(--text); font-size:15px; font-weight:600; appearance:auto; -webkit-appearance:menulist; }
+            /* Asegurar que el selector iOS esté por encima y sea interactivo */
+            #sidebar #nav.ios-nav select {
+                width:100%; min-height:44px; padding:10px 38px 10px 13px; border:1px solid var(--border); border-radius:9px;
+                background:#fff; color:var(--text); font-size:15px; font-weight:600; appearance:menulist-button; -webkit-appearance: menulist-button;
+                position:relative; z-index:2200; box-sizing:border-box; touch-action:auto; pointer-events:auto;
+            }
         }
     `;
     document.head.appendChild(style);

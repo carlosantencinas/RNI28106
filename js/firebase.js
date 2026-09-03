@@ -315,6 +315,15 @@ async function loadData(userId) {
 async function initFirebase() {
     const cfg = getSavedFirebaseConfig();
 
+    // Cargar dinámicamente las librerías de Firebase si aún no están presentes (mejora de carga inicial)
+    if (typeof firebase === 'undefined' && window.HidroLoader && typeof window.HidroLoader.loadFirebase === 'function') {
+        try {
+            await window.HidroLoader.loadFirebase();
+        } catch (e) {
+            console.warn('Error cargando libs de Firebase:', e);
+        }
+    }
+
     if (!cfg) {
         cloudReady = false;
         updateFirebaseStatus(false, '⚠️ Configura Firebase');
