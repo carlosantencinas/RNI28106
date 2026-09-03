@@ -121,8 +121,24 @@ function render() {
         { title: 'Sistema', items: [['config', 'Configuración', 'cfg']] }
     ];
 
-    if (isAppleTouchDevice()) {
+    const isMobileView = window.matchMedia('(max-width: 768px)').matches;
+
+    if (isAppleTouchDevice() || isMobileView) {
         renderIOSNavigation(nav, groups);
+        // Inyectar botón hamburger DESPUÉS de renderizar nav
+        setTimeout(() => {
+            const brand = document.querySelector('#sidebar .brand');
+            if (brand && !document.getElementById('mobile-hamburger')) {
+                const btn = document.createElement('button');
+                btn.className = 'mobile-hamburger';
+                btn.id = 'mobile-hamburger';
+                btn.setAttribute('aria-label', 'Abrir menú');
+                btn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:transparent;border:none;color:#fff;margin-left:8px;cursor:pointer;z-index:2300;position:relative;';
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;"><path d="M3 6h18M3 12h18M3 18h18"/></svg>';
+                brand.appendChild(btn);
+                btn.addEventListener('click', toggleMobileMenuOverlay);
+            }
+        }, 50);
     } else {
         nav.classList.remove('ios-nav');
         nav.innerHTML = groups.map(group => `
@@ -135,7 +151,7 @@ function render() {
             </div>
         `).join('');
 
-        nav.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { S.view = b.dataset.nav; render(); });
+            nav.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { S.view = b.dataset.nav; render(); });
     }
 
     const main = document.getElementById('main');
@@ -180,4 +196,50 @@ function render() {
     }
 
     if ((S.view === 'dashboard' || S.view === 'finanzas') && typeof syncPagosFijosEnhanced === 'function') syncPagosFijosEnhanced();
+}
+
+function toggleMobileMenuOverlay() {
+    let overlay = document.getElementById('mobile-nav-overlay');
+    if (overlay) { overlay.remove(); return; }
+
+    overlay = document.createElement('div');
+    overlay.id = 'mobile-nav-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2299;display:flex;align-items:flex-start;justify-content:center;padding-top:64px;';
+
+    const menu = document.createElement('div');
+    menu.style.cssText = 'width:92%;max-width:420px;background:#fff;color:#111;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,0.25);overflow:hidden;';
+
+    const groups = [
+        { title: 'Inicio', items: [['dashboard', 'Dashboard']] },
+        { title: 'Gestión profesional', items: [['cotizaciones', 'Cotizaciones'],['administrativo', 'Administrativo'],['documentos', 'Documentos'],['finanzas', 'Finanzas'],['clientes', 'Clientes']] },
+        { title: 'Trayectoria', items: [['experiencia', 'Experiencia'],['actividades', 'Actividades'],['licitaciones', 'Licitaciones']] },
+        { title: 'Red profesional', items: [['contactos', 'Contactos']] },
+        { title: 'Sistema', items: [['config', 'Configuración']] }
+    ];
+
+    menu.innerHTML = groups.map(g => `
+        <div style="padding:12px 16px;border-bottom:1px solid #EEE;">
+            <div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">${g.title}</div>
+            ${g.items.map(([id, label]) => `<button class="nav-btn-overlay" data-nav="${id}" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:none;font-size:15px;color:#111;cursor:pointer;">${label}</button>`).join('')}
+        </div>
+    `).join('');
+
+    const closeBtn = document.createElement('button');
+    closeBtn.style.cssText = 'position:absolute;right:12px;top:12px;width:40px;height:40px;border-radius:20px;background:#fff;border:1px solid #CCC;cursor:pointer;font-size:22px;line-height:1;z-index:2300;';
+    closeBtn.textContent = '×';
+    closeBtn.onclick = () => overlay.remove();
+
+    overlay.appendChild(menu);
+    overlay.appendChild(closeBtn);
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+
+    overlay.querySelectorAll('[data-nav]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            S.view = btn.dataset.nav;
+            render();
+            overlay.remove();
+        });
+    });
 }
