@@ -19,18 +19,51 @@ function ensureClienteFinancieroModule() {
 
 function render() {
     const nav = document.getElementById('nav');
-    const items = [
-        ['dashboard', 'Dashboard', 'dash'], ['cotizaciones', 'Cotizaciones', 'quote'],
-        ['administrativo', 'Administrativo', 'admin'], ['documentos', 'Documentos', 'folder'],
-        ['finanzas', 'Finanzas', 'money'], ['clientes', 'Clientes', 'client'],
-        ['experiencia', 'Experiencia', 'exp'], ['actividades', 'Actividades', 'act'],
-        ['licitaciones', 'Licitaciones', 'lic'], ['contactos', 'Contactos', 'contact'],
-        ['config', 'Configuración', 'cfg']
+    const groups = [
+        {
+            title: 'Inicio',
+            items: [['dashboard', 'Dashboard', 'dash']]
+        },
+        {
+            title: 'Gestión profesional',
+            items: [
+                ['cotizaciones', 'Cotizaciones', 'quote'],
+                ['administrativo', 'Administrativo', 'admin'],
+                ['documentos', 'Documentos', 'folder'],
+                ['finanzas', 'Finanzas', 'money'],
+                ['clientes', 'Clientes', 'client']
+            ]
+        },
+        {
+            title: 'Trayectoria',
+            items: [
+                ['experiencia', 'Experiencia', 'exp'],
+                ['actividades', 'Actividades', 'act'],
+                ['licitaciones', 'Licitaciones', 'lic']
+            ]
+        },
+        {
+            title: 'Red profesional',
+            items: [['contactos', 'Contactos', 'contact']]
+        },
+        {
+            title: 'Sistema',
+            items: [['config', 'Configuración', 'cfg']]
+        }
     ];
-    nav.innerHTML = items.map(([id,label,ic]) => {
-        const icon = ic === 'folder' ? (ICONS.folder || '📁') : ic === 'money' ? '💰' : ICONS[ic];
-        return `<button class="nav-btn ${S.view === id ? 'active' : ''}" data-nav="${id}">${icon}<span>${label}</span></button>`;
-    }).join('');
+
+    nav.innerHTML = groups.map(group => `
+        <div class="nav-group">
+            <div class="nav-group-title">${group.title}</div>
+            ${group.items.map(([id, label, ic]) => {
+                const icon = ic === 'folder' ? (ICONS.folder || '📁') : ic === 'money' ? '💰' : ICONS[ic];
+                return `<button class="nav-btn ${S.view === id ? 'active' : ''}" data-nav="${id}" title="${label}">
+                    <span class="nav-icon">${icon}</span><span class="nav-label">${label}</span>
+                </button>`;
+            }).join('')}
+        </div>
+    `).join('');
+
     nav.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { S.view = b.dataset.nav; render(); });
 
     const main = document.getElementById('main');
