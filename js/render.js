@@ -16,64 +16,22 @@ function ensureUICompatibilityStyles() {
         .chart-bar-row .track { flex:1; height:18px; min-width:60px; background:var(--gantt-bg); border-radius:3px; overflow:hidden; position:relative; }
         .chart-bar-row .track .fill { height:100%; border-radius:3px; transition:width .5s ease; }
         .chart-bar-row .value { width:auto; min-width:90px; flex-shrink:0; text-align:right; font-family:'JetBrains Mono',monospace; color:var(--text-soft); }
-
-        /* Menú moderno, usando SVG para evitar emojis problemáticos en iOS */
-        #sidebar { background:#102F3A; color:#fff; border-right:0; padding:20px 12px 14px; gap:6px; }
-        .brand { padding:4px 8px 18px; border-bottom-color:rgba(255,255,255,.12); margin-bottom:8px; }
-        .brand-txt .t1 { color:#fff; }
-        .brand-txt .t2 { color:rgba(255,255,255,.62); font-size:10px; }
-        .nav-group { margin-bottom:9px; }
-        .nav-group-title { padding:5px 12px 6px; font-size:9px; font-weight:700; letter-spacing:.12em; color:rgba(255,255,255,.42); }
-        .nav-btn { position:relative; gap:10px; padding:9px 10px; margin:2px 0; border-radius:10px; border:1px solid transparent; background:transparent; color:rgba(255,255,255,.72); font-size:12.5px; }
-        .nav-btn:hover { background:rgba(255,255,255,.08); color:#fff; }
-        .nav-btn.active { background:rgba(212,168,84,.14); color:#fff; border-color:rgba(212,168,84,.28); box-shadow:inset 3px 0 0 var(--accent); }
-        .nav-icon { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:rgba(255,255,255,.07); line-height:0; flex-shrink:0; }
+        .nav-icon { line-height:0; }
         .nav-icon svg { width:18px !important; height:18px !important; display:block; flex:none; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-        .nav-btn:hover .nav-icon { background:rgba(255,255,255,.13); }
-        .nav-btn.active .nav-icon { background:var(--accent); color:#fff; box-shadow:0 3px 10px rgba(184,134,46,.25); }
         .nav-btn.active .nav-icon svg { stroke:#fff; }
-        .nav-label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .nav-user { color:rgba(255,255,255,.6); border-top-color:rgba(255,255,255,.12); }
-        .nav-user .email { color:rgba(255,255,255,.85); }
-        .nav-user .logout-btn { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.15); color:rgba(255,255,255,.72); }
-        .nav-foot { color:rgba(255,255,255,.42); border-top-color:rgba(255,255,255,.12); }
-
-        /* Dashboard compacto sin eliminar información */
-        .dashboard-compact { padding-top:22px; }
-        .dashboard-compact .page-head { margin-bottom:15px; }
-        .dashboard-compact .page-head h1 { font-size:21px; }
-        .dashboard-compact .kpi-grid { grid-template-columns:repeat(6,minmax(120px,1fr)); gap:9px; margin-bottom:14px; }
-        .dashboard-compact .kpi { padding:10px 12px; min-height:78px; }
-        .dashboard-compact .kpi .val { font-size:18px; }
-        .dashboard-compact .panel + .panel { margin-top:10px; }
-        .dashboard-compact .panel-h { padding:10px 14px; }
-        .dashboard-compact .panel-body { padding:11px 14px; }
-        .dashboard-compact .dash-grid-2 { gap:10px; margin-bottom:10px; }
-        .dashboard-compact .chart-bar-row { margin-bottom:5px; }
-        .dashboard-compact .chart-bar-row .track { height:13px; }
-        .dashboard-compact #dashboard-experience-evolution { margin-top:10px !important; padding:14px !important; }
-        .dashboard-compact .gantt-container { padding:10px; }
-        .dashboard-compact .gantt-row { padding:4px 0; }
-        .dashboard-compact .gantt-track { height:22px; }
-        .dashboard-compact .gantt-label { width:180px; }
-
-        @media (max-width:1100px) { .dashboard-compact .kpi-grid { grid-template-columns:repeat(3,1fr); } }
+        /* Menú activo: azul moderno y texto/icono blanco */
+        #sidebar .nav-btn.active { background:#1565C0; color:#fff; }
+        #sidebar .nav-btn.active:hover { background:#0D5AAA; color:#fff; }
+        #dashboard-experience-evolution { box-sizing:border-box; }
         @media (max-width:768px) {
             .chart-bar-row .label { width:80px; font-size:10px; }
             .chart-bar-row .value { min-width:70px; font-size:10px; }
-            .dashboard-compact .kpi-grid { grid-template-columns:repeat(2,1fr); }
-            #sidebar { width:70px; padding:14px 7px; }
-            .brand { justify-content:center; padding:2px 0 14px; }
-            .brand-txt,.nav-label,.nav-group-title,.nav-foot,.nav-user { display:none; }
-            .nav-btn { justify-content:center; padding:7px; }
-            .nav-icon { width:38px; height:38px; }
         }
         @media (max-width:480px) {
             .chart-bar-row { flex-wrap:wrap; gap:4px; }
             .chart-bar-row .label { width:100%; font-size:10px; }
             .chart-bar-row .track { width:100%; min-width:auto; height:14px; }
             .chart-bar-row .value { width:100%; min-width:auto; font-size:10px; }
-            .dashboard-compact .kpi-grid { grid-template-columns:1fr 1fr; }
         }
     `;
     document.head.appendChild(style);
@@ -169,7 +127,12 @@ function render() {
         if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
         if (typeof syncDashboardFinancialView === 'function') syncDashboardFinancialView();
         if (typeof syncPagosFijosDashboard === 'function') syncPagosFijosDashboard();
-        if (typeof renderDashboardExperienceEvolution === 'function') setTimeout(() => renderDashboardExperienceEvolution(), 0);
+        // Re-monta explícitamente la gráfica después de que viewDashboard() reemplaza #main.
+        if (typeof renderDashboardExperienceEvolution === 'function') {
+            setTimeout(() => {
+                if (S.view === 'dashboard') renderDashboardExperienceEvolution();
+            }, 0);
+        }
     }
 
     if ((S.view === 'dashboard' || S.view === 'finanzas') && typeof syncPagosFijosEnhanced === 'function') syncPagosFijosEnhanced();
