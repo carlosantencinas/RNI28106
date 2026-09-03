@@ -126,7 +126,93 @@
             observer.observe(nav, { childList:true, subtree:true });
             nav.__mobileNavObserver = observer;
         }
+
+        // Crear botón hamburger como fallback para móviles (más consistente en iOS)
+        const brand = document.querySelector('#sidebar .brand');
+        if (brand && !document.getElementById('mobile-hamburger')) {
+            const btn = document.createElement('button');
+            btn.className = 'mobile-hamburger';
+            btn.id = 'mobile-hamburger';
+            btn.setAttribute('aria-label', 'Abrir menú');
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>';
+            // Insertar al final de la barra de marca
+            brand.appendChild(btn);
+            btn.addEventListener('click', () => toggleMobileOverlay());
+        }
+
         window.addEventListener('resize', mount);
+    }
+
+    function toggleMobileOverlay() {
+        let overlay = document.getElementById('mobile-nav-overlay');
+        if (overlay) { overlay.remove(); return; }
+
+        overlay = document.createElement('div');
+        overlay.id = 'mobile-nav-overlay';
+        // estilos inline para evitar depender de CSS externo
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2299;display:flex;align-items:flex-start;justify-content:center;padding-top:64px;';
+
+        const menu = document.createElement('div');
+        menu.className = 'menu';
+        menu.style.cssText = 'width:92%;max-width:420px;background:#fff;color:#111;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,0.25);overflow:hidden;';
+
+        // Construir contenido del menú a partir del nav original
+        const nav = document.getElementById('nav');
+        if (nav) {
+            // clonar los grupos y convertir botones en bloque
+            const groups = Array.from(nav.querySelectorAll('.nav-group'));
+            if (groups.length) {
+                menu.innerHTML = groups.map(g => `<div class="nav-group">${g.innerHTML}</div>`).join('');
+            } else {
+                menu.innerHTML = nav.innerHTML;
+            }
+        } else {
+            menu.innerHTML = '<div class="nav-group"><div style="padding:14px;color:#666;">Menú no disponible</div></div>';
+        }
+
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'close-btn';
+        closeBtn.setAttribute('aria-label', 'Cerrar menú');
+        closeBtn.style.cssText = 'position:absolute;right:12px;top:12px;width:40px;height:40px;border-radius:20px;background:#fff;border:none;box-shadow:0 4px 10px rgba(0,0,0,0.12);cursor:pointer;font-size:20px;line-height:1';
+        closeBtn.textContent = '×';
+        closeBtn.onclick = () => overlay.remove();
+
+        overlay.appendChild(menu);
+        overlay.appendChild(closeBtn);
+
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+        document.body.appendChild(overlay);
+
+        // Reemplazar clases de botones internos y enganchar eventos
+        setTimeout(() => {
+            // convertir nav-btns en botones de menú si están presentes
+            overlay.querySelectorAll('.nav-btn').forEach(b => {
+                b.style.display = 'block';
+                b.style.padding = '12px 12px';
+                b.style.border = 'none';
+                b.style.background = 'none';
+                b.style.width = '100%';
+                b.style.textAlign = 'left';
+                b.addEventListener('click', (e) => {
+                    const id = b.dataset?.nav;
+                    if (id && typeof S !== 'undefined') S.view = id;
+                    if (typeof render === 'function') render();
+                    overlay.remove();
+                });
+            });
+
+            // opciones de select dentro del clon
+            overlay.querySelectorAll('select').forEach(sel => {
+                sel.addEventListener('change', () => {
+                    const id = sel.value;
+                    if (id && typeof S !== 'undefined') S.view = id;
+                    if (typeof render === 'function') render();
+                    overlay.remove();
+                });
+            });
+        }, 0);
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
