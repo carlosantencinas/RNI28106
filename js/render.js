@@ -193,6 +193,10 @@ function render() {
                 if (S.view === 'dashboard') renderDashboardExperienceEvolution();
             }, 0);
         }
+        // Inicializar visualizaciones D3 si están disponibles
+        if (typeof initDashboardD3 === 'function') {
+            setTimeout(() => { if (S.view === 'dashboard') initDashboardD3(); }, 50);
+        }
     }
 
     if ((S.view === 'dashboard' || S.view === 'finanzas') && typeof syncPagosFijosEnhanced === 'function') syncPagosFijosEnhanced();
