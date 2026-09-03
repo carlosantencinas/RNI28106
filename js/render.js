@@ -2,6 +2,21 @@
 // RENDER PRINCIPAL - ORQUESTADOR ÚNICO
 // ============================================================
 
+let clienteFinancieroLoader = null;
+function ensureClienteFinancieroModule() {
+    if (typeof enhanceClientesView === 'function') return Promise.resolve();
+    if (!clienteFinancieroLoader) {
+        clienteFinancieroLoader = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'js/cliente-financiero.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+    return clienteFinancieroLoader.catch(e => console.warn('No se pudo cargar la ficha financiera del cliente:', e));
+}
+
 function render() {
     const nav = document.getElementById('nav');
     const items = [
@@ -39,6 +54,12 @@ function render() {
 
     if (S.view === 'administrativo' && typeof enhanceAdministrativeView === 'function') enhanceAdministrativeView();
     if (S.view === 'finanzas' && typeof enhanceFinanceView === 'function') enhanceFinanceView();
+
+    if (S.view === 'clientes') {
+        ensureClienteFinancieroModule().then(() => {
+            if (S.view === 'clientes' && typeof enhanceClientesView === 'function') enhanceClientesView();
+        });
+    }
 
     if (S.view === 'dashboard') {
         if (typeof syncDashboardPaymentCards === 'function') syncDashboardPaymentCards();
