@@ -23,6 +23,9 @@ function ensureUICompatibilityStyles() {
         #sidebar .nav-btn.active { background:#1565C0; color:#fff; }
         #sidebar .nav-btn.active:hover { background:#0D5AAA; color:#fff; }
         #dashboard-experience-evolution { box-sizing:border-box; }
+
+        /* Selector de navegación para iPhone/iPad */
+        #ios-nav-selector { display:none; }
         @media (max-width:768px) {
             .chart-bar-row .label { width:80px; font-size:10px; }
             .chart-bar-row .value { min-width:70px; font-size:10px; }
@@ -32,6 +35,13 @@ function ensureUICompatibilityStyles() {
             .chart-bar-row .label { width:100%; font-size:10px; }
             .chart-bar-row .track { width:100%; min-width:auto; height:14px; }
             .chart-bar-row .value { width:100%; min-width:auto; font-size:10px; }
+        }
+        @supports (-webkit-touch-callout: none) {
+            #sidebar #nav.ios-nav { display:block; }
+            #sidebar #nav.ios-nav .nav-group { display:none; }
+            #sidebar #nav.ios-nav #ios-nav-selector { display:block; width:100%; box-sizing:border-box; }
+            #sidebar #nav.ios-nav .ios-nav-label { display:block; margin:0 0 7px; font-size:11px; font-weight:700; color:var(--text-soft); text-transform:uppercase; letter-spacing:.04em; }
+            #sidebar #nav.ios-nav select { width:100%; min-height:44px; padding:10px 38px 10px 13px; border:1px solid var(--border); border-radius:9px; background:#fff; color:var(--text); font-size:15px; font-weight:600; appearance:auto; -webkit-appearance:menulist; }
         }
     `;
     document.head.appendChild(style);
@@ -70,6 +80,30 @@ function navIcon(id, fallbackKey) {
     return `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
 }
 
+function isAppleTouchDevice() {
+    const ua = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function renderIOSNavigation(nav, groups) {
+    nav.classList.add('ios-nav');
+    const current = groups.flatMap(g => g.items).find(item => item[0] === S.view);
+    nav.innerHTML = `
+        <div id="ios-nav-selector">
+            <label class="ios-nav-label" for="ios-nav-select">Sección</label>
+            <select id="ios-nav-select" aria-label="Navegación principal">
+                ${groups.map(group => `
+                    <optgroup label="${group.title}">
+                        ${group.items.map(([id, label]) => `<option value="${id}" ${S.view === id ? 'selected' : ''}>${label}</option>`).join('')}
+                    </optgroup>
+                `).join('')}
+            </select>
+        </div>
+    `;
+    const select = document.getElementById('ios-nav-select');
+    if (select) select.onchange = () => { S.view = select.value; render(); };
+}
+
 function render() {
     ensureUICompatibilityStyles();
 
@@ -82,17 +116,22 @@ function render() {
         { title: 'Sistema', items: [['config', 'Configuración', 'cfg']] }
     ];
 
-    nav.innerHTML = groups.map(group => `
-        <div class="nav-group">
-            <div class="nav-group-title">${group.title}</div>
-            ${group.items.map(([id, label, ic]) => {
-                const icon = navIcon(id, ic);
-                return `<button class="nav-btn ${S.view === id ? 'active' : ''}" data-nav="${id}" title="${label}"><span class="nav-icon">${icon}</span><span class="nav-label">${label}</span></button>`;
-            }).join('')}
-        </div>
-    `).join('');
+    if (isAppleTouchDevice()) {
+        renderIOSNavigation(nav, groups);
+    } else {
+        nav.classList.remove('ios-nav');
+        nav.innerHTML = groups.map(group => `
+            <div class="nav-group">
+                <div class="nav-group-title">${group.title}</div>
+                ${group.items.map(([id, label, ic]) => {
+                    const icon = navIcon(id, ic);
+                    return `<button class="nav-btn ${S.view === id ? 'active' : ''}" data-nav="${id}" title="${label}"><span class="nav-icon">${icon}</span><span class="nav-label">${label}</span></button>`;
+                }).join('')}
+            </div>
+        `).join('');
 
-    nav.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { S.view = b.dataset.nav; render(); });
+        nav.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { S.view = b.dataset.nav; render(); });
+    }
 
     const main = document.getElementById('main');
     main.classList.toggle('dashboard-compact', S.view === 'dashboard');
