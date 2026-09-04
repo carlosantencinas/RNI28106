@@ -10,7 +10,6 @@ function ensureUICompatibilityStyles() {
     const style = document.createElement('style');
     style.id = 'ui-compatibility-styles';
     style.textContent = `
-        /* Compatibilidad visual: conserva las gráficas existentes */
         .chart-bar-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:12px; }
         .chart-bar-row .label { width:130px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
         .chart-bar-row .track { flex:1; height:18px; min-width:60px; background:var(--gantt-bg); border-radius:3px; overflow:hidden; position:relative; }
@@ -19,12 +18,9 @@ function ensureUICompatibilityStyles() {
         .nav-icon { line-height:0; }
         .nav-icon svg { width:18px !important; height:18px !important; display:block; flex:none; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
         .nav-btn.active .nav-icon svg { stroke:#fff; }
-        /* Menú activo: azul moderno y texto/icono blanco */
         #sidebar .nav-btn.active { background:#1565C0; color:#fff; }
         #sidebar .nav-btn.active:hover { background:#0D5AAA; color:#fff; }
         #dashboard-experience-evolution { box-sizing:border-box; }
-
-        /* Selector de navegación para iPhone/iPad */
         #ios-nav-selector { display:none; }
         @media (max-width:768px) {
             .chart-bar-row .label { width:80px; font-size:10px; }
@@ -41,12 +37,7 @@ function ensureUICompatibilityStyles() {
             #sidebar #nav.ios-nav .nav-group { display:none; }
             #sidebar #nav.ios-nav #ios-nav-selector { display:block; width:100%; box-sizing:border-box; }
             #sidebar #nav.ios-nav .ios-nav-label { display:block; margin:0 0 7px; font-size:11px; font-weight:700; color:var(--text-soft); text-transform:uppercase; letter-spacing:.04em; }
-            /* Asegurar que el selector iOS esté por encima y sea interactivo */
-            #sidebar #nav.ios-nav select {
-                width:100%; min-height:44px; padding:10px 38px 10px 13px; border:1px solid var(--border); border-radius:9px;
-                background:#fff; color:var(--text); font-size:15px; font-weight:600; appearance:menulist-button; -webkit-appearance: menulist-button;
-                position:relative; z-index:2200; box-sizing:border-box; touch-action:auto; pointer-events:auto;
-            }
+            #sidebar #nav.ios-nav select { width:100%; min-height:44px; padding:10px 38px 10px 13px; border:1px solid var(--border); border-radius:9px; background:#fff; color:var(--text); font-size:15px; font-weight:600; appearance:menulist-button; -webkit-appearance:menulist-button; position:relative; z-index:2200; box-sizing:border-box; touch-action:auto; pointer-events:auto; }
         }
     `;
     document.head.appendChild(style);
@@ -92,7 +83,6 @@ function isAppleTouchDevice() {
 
 function renderIOSNavigation(nav, groups) {
     nav.classList.add('ios-nav');
-    const current = groups.flatMap(g => g.items).find(item => item[0] === S.view);
     nav.innerHTML = `
         <div id="ios-nav-selector">
             <label class="ios-nav-label" for="ios-nav-select">Sección</label>
@@ -125,7 +115,6 @@ function render() {
 
     if (isAppleTouchDevice() || isMobileView) {
         renderIOSNavigation(nav, groups);
-        // Inyectar botón hamburger DESPUÉS de renderizar nav
         setTimeout(() => {
             const brand = document.querySelector('#sidebar .brand');
             if (brand && !document.getElementById('mobile-hamburger')) {
@@ -144,14 +133,10 @@ function render() {
         nav.innerHTML = groups.map(group => `
             <div class="nav-group">
                 <div class="nav-group-title">${group.title}</div>
-                ${group.items.map(([id, label, ic]) => {
-                    const icon = navIcon(id, ic);
-                    return `<button class="nav-btn ${S.view === id ? 'active' : ''}" data-nav="${id}" title="${label}"><span class="nav-icon">${icon}</span><span class="nav-label">${label}</span></button>`;
-                }).join('')}
+                ${group.items.map(([id, label, ic]) => `<button class="nav-btn ${S.view === id ? 'active' : ''}" data-nav="${id}" title="${label}"><span class="nav-icon">${navIcon(id, ic)}</span><span class="nav-label">${label}</span></button>`).join('')}
             </div>
         `).join('');
-
-            nav.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { S.view = b.dataset.nav; render(); });
+        nav.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { S.view = b.dataset.nav; render(); });
     }
 
     const main = document.getElementById('main');
@@ -187,11 +172,12 @@ function render() {
         if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
         if (typeof syncDashboardFinancialView === 'function') syncDashboardFinancialView();
         if (typeof syncPagosFijosDashboard === 'function') syncPagosFijosDashboard();
-        // Re-monta explícitamente la gráfica después de que viewDashboard() reemplaza #main.
         if (typeof renderDashboardExperienceEvolution === 'function') {
-            setTimeout(() => {
-                if (S.view === 'dashboard') renderDashboardExperienceEvolution();
-            }, 0);
+            setTimeout(() => { if (S.view === 'dashboard') renderDashboardExperienceEvolution(); }, 0);
+        }
+        // Gráficas adicionales: se montan después de que viewDashboard() terminó.
+        if (typeof renderDashboardCharts === 'function') {
+            setTimeout(() => { if (S.view === 'dashboard') renderDashboardCharts(); }, 0);
         }
     }
 
@@ -201,14 +187,11 @@ function render() {
 function toggleMobileMenuOverlay() {
     let overlay = document.getElementById('mobile-nav-overlay');
     if (overlay) { overlay.remove(); return; }
-
     overlay = document.createElement('div');
     overlay.id = 'mobile-nav-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2299;display:flex;align-items:flex-start;justify-content:center;padding-top:64px;';
-
     const menu = document.createElement('div');
     menu.style.cssText = 'width:92%;max-width:420px;background:#fff;color:#111;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,0.25);overflow:hidden;';
-
     const groups = [
         { title: 'Inicio', items: [['dashboard', 'Dashboard']] },
         { title: 'Gestión profesional', items: [['cotizaciones', 'Cotizaciones'],['administrativo', 'Administrativo'],['documentos', 'Documentos'],['finanzas', 'Finanzas'],['clientes', 'Clientes']] },
@@ -216,30 +199,13 @@ function toggleMobileMenuOverlay() {
         { title: 'Red profesional', items: [['contactos', 'Contactos']] },
         { title: 'Sistema', items: [['config', 'Configuración']] }
     ];
-
-    menu.innerHTML = groups.map(g => `
-        <div style="padding:12px 16px;border-bottom:1px solid #EEE;">
-            <div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">${g.title}</div>
-            ${g.items.map(([id, label]) => `<button class="nav-btn-overlay" data-nav="${id}" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:none;font-size:15px;color:#111;cursor:pointer;">${label}</button>`).join('')}
-        </div>
-    `).join('');
-
+    menu.innerHTML = groups.map(g => `<div style="padding:12px 16px;border-bottom:1px solid #EEE;"><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">${g.title}</div>${g.items.map(([id, label]) => `<button class="nav-btn-overlay" data-nav="${id}" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:none;font-size:15px;color:#111;cursor:pointer;">${label}</button>`).join('')}</div>`).join('');
     const closeBtn = document.createElement('button');
     closeBtn.style.cssText = 'position:absolute;right:12px;top:12px;width:40px;height:40px;border-radius:20px;background:#fff;border:1px solid #CCC;cursor:pointer;font-size:22px;line-height:1;z-index:2300;';
     closeBtn.textContent = '×';
     closeBtn.onclick = () => overlay.remove();
-
-    overlay.appendChild(menu);
-    overlay.appendChild(closeBtn);
-
+    overlay.appendChild(menu); overlay.appendChild(closeBtn);
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
-
-    overlay.querySelectorAll('[data-nav]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            S.view = btn.dataset.nav;
-            render();
-            overlay.remove();
-        });
-    });
+    overlay.querySelectorAll('[data-nav]').forEach(btn => btn.addEventListener('click', () => { S.view = btn.dataset.nav; render(); overlay.remove(); }));
 }
