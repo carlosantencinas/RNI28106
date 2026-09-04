@@ -4,7 +4,7 @@
 
 const S = {
     view: 'dashboard', user: null, firebaseConnected: false, editingCV: false,
-    cotizaciones: [], pagos: [], pagosFijos: [], clientes: [], experiencia: [], formacion: [], cursos: [], actividades: [], documentos: [], licitaciones: [], contactos: [], referencias: [],
+    cotizaciones: [], pagos: [], pagosFijos: [], gastos: [], clientes: [], experiencia: [], formacion: [], cursos: [], actividades: [], documentos: [], licitaciones: [], contactos: [], referencias: [],
     datosPersonales: { nombre:'', ci:'', lugarExpedicion:'', fechaNacimiento:'', nacionalidad:'', profesion:'', registroProfesional:'' },
     config: { ...DEFAULT_CONFIG },
     ganttYears: 10, ganttShowEducacion: true, ganttShowCursos: true,
