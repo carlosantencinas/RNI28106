@@ -7,9 +7,9 @@
 
     const CATEGORIAS = ['Vehículo','Hogar','Equipamiento','Oficina','Formación','Personal','Mantenimiento','Trámites','Financiero','Otros'];
     const METODOS = ['Efectivo','Transferencia','Tarjeta','Débito automático','Otro'];
-    const escG = v => typeof esc === 'function' ? esc(v ?? '') : String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    const escG = v => typeof esc === 'function' ? esc(v ?? '') : String(v ?? '').replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
     const dinero = v => typeof bs === 'function' ? bs(Number(v)||0) : `Bs ${(Number(v)||0).toFixed(2)}`;
-    const hoy = () => new Date().toISOString().slice(0,10);
+    const hoy = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
     const uid = () => global.crypto?.randomUUID ? crypto.randomUUID() : `g_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
     async function cargar() {
@@ -17,7 +17,7 @@
         S.gastos = Array.isArray(S.gastos) ? S.gastos : [];
         return S.gastos;
     }
-    async function guardar() { return typeof saveGastos === 'function' ? saveGastos() : false; }
+    async function persistirGastos() { return typeof saveGastos === 'function' ? saveGastos() : false; }
 
     function formHTML(g={}) {
         const cat = g.categoria || 'Otros';
@@ -59,12 +59,14 @@
             notas:document.getElementById('g-notas')?.value.trim()||''
         };
         if(g) Object.assign(g,data); else S.gastos.push(data);
-        await guardar(); cerrar(); render();
+        await persistirGastos();
+        cerrar();
+        render();
     }
     async function eliminar(id){
         await cargar(); const g=S.gastos.find(x=>String(x.id)===String(id));
         if(!g || !confirm(`¿Eliminar el gasto "${g.concepto}" por ${dinero(g.monto)}?`))return;
-        S.gastos=S.gastos.filter(x=>String(x.id)!==String(id)); await guardar(); render();
+        S.gastos=S.gastos.filter(x=>String(x.id)!==String(id)); await persistirGastos(); render();
     }
 
     function resumen(){
