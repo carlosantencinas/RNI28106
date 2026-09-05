@@ -1,6 +1,6 @@
 // ============================================================
 // NAVEGACIÓN MÓVIL - ESTILOS
-// Inyecta solo CSS responsive. render.js maneja la lógica del menú.
+// Incluye ajustes responsive de navegación y modales.
 // ============================================================
 (function () {
     function injectStyles() {
@@ -53,10 +53,64 @@
                 }
                 .mobile-hamburger svg { width:20px !important; height:20px !important; stroke:#fff !important; stroke-width:2.2 !important; }
 
-                #main {
+                main {
                     width:100% !important; min-width:0 !important; margin:0 !important;
                     padding:12px !important; box-sizing:border-box !important;
                 }
+
+                /* Modales: en móvil deben ocupar la ventana, no quedar fuera de ella. */
+                .overlay {
+                    position:fixed !important;
+                    inset:0 !important;
+                    width:100vw !important;
+                    height:100dvh !important;
+                    min-height:100vh !important;
+                    padding:8px !important;
+                    display:flex !important;
+                    align-items:flex-start !important;
+                    justify-content:center !important;
+                    overflow-y:auto !important;
+                    overflow-x:hidden !important;
+                    z-index:9999 !important;
+                    -webkit-overflow-scrolling:touch !important;
+                }
+
+                .overlay .modal {
+                    width:100% !important;
+                    max-width:none !important;
+                    max-height:calc(100dvh - 16px) !important;
+                    margin:0 !important;
+                    display:flex !important;
+                    flex-direction:column !important;
+                    overflow:hidden !important;
+                    flex-shrink:0 !important;
+                }
+
+                .overlay .modal-h {
+                    flex:0 0 auto !important;
+                    padding:13px 16px !important;
+                }
+
+                .overlay .modal-h h3 { font-size:15px !important; }
+
+                .overlay .modal-body {
+                    flex:1 1 auto !important;
+                    min-height:0 !important;
+                    max-height:none !important;
+                    overflow-y:auto !important;
+                    overflow-x:hidden !important;
+                    padding:16px !important;
+                    -webkit-overflow-scrolling:touch !important;
+                }
+
+                .overlay .modal-foot {
+                    flex:0 0 auto !important;
+                    padding:10px 16px !important;
+                    background:var(--surface) !important;
+                    padding-bottom:max(10px, env(safe-area-inset-bottom)) !important;
+                }
+
+                .overlay .modal-foot .btn { flex:1 1 0 !important; justify-content:center !important; }
             }
         `;
         document.head.appendChild(style);
