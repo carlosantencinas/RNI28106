@@ -22,7 +22,7 @@
     function formHTML(g={}) {
         const cat = g.categoria || 'Otros';
         const metodo = g.metodoPago || 'Transferencia';
-        return `<div class="modal-overlay" id="gasto-modal" onclick="if(event.target===this)cerrarGastoModal()"><div class="modal" style="max-width:680px"><div class="modal-h"><h3>${g.id?'Editar gasto':'Nuevo gasto'}</h3><button class="iconbtn" onclick="cerrarGastoModal()">×</button></div><div class="modal-body"><div class="form-grid">
+        return `<div class="overlay" id="gasto-modal" onclick="if(event.target===this)cerrarGastoModal()"><div class="modal" style="max-width:680px"><div class="modal-h"><h3>${g.id?'Editar gasto':'Nuevo gasto'}</h3><button class="iconbtn" onclick="cerrarGastoModal()">×</button></div><div class="modal-body"><div class="form-grid">
         <div class="field"><label>Fecha *</label><input id="g-fecha" type="date" value="${escG(g.fecha||hoy())}" required></div>
         <div class="field"><label>Monto (Bs) *</label><input id="g-monto" type="number" min="0" step="0.01" value="${g.monto??''}" required></div>
         <div class="field full"><label>Concepto *</label><input id="g-concepto" value="${escG(g.concepto||'')}" placeholder="Ej.: Compra de 4 llantas" required></div>
@@ -32,7 +32,7 @@
         <div class="field"><label>NIT proveedor</label><input id="g-nit" value="${escG(g.nitProveedor||'')}" placeholder="Opcional"></div>
         <div class="field"><label>N.º factura</label><input id="g-factura" value="${escG(g.factura||'')}" placeholder="Opcional"></div>
         <div class="field full"><label>Notas</label><textarea id="g-notas" rows="3" placeholder="Detalle, motivo o información adicional">${escG(g.notas||'')}</textarea></div>
-        </div></div><div class="modal-f"><button class="btn btn-ghost" onclick="cerrarGastoModal()">Cancelar</button><button class="btn btn-primary" onclick="guardarGasto('${escG(g.id||'')}')">Guardar</button></div></div></div>`;
+        </div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="cerrarGastoModal()">Cancelar</button><button class="btn btn-primary" onclick="guardarGasto('${escG(g.id||'')}')">Guardar</button></div></div></div>`;
     }
 
     function abrir(id='') {
