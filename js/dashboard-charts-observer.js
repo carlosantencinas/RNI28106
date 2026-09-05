@@ -1,15 +1,9 @@
-// Re-monta las gráficas cuando render() reemplaza el contenido de #main.
+// ============================================================
+// DASHBOARD CHARTS OBSERVER - Desactivado
+// Las gráficas detalladas ahora se muestran exclusivamente en
+// el apartado Análisis para mantener el Dashboard limpio.
+// ============================================================
 (function(){
-    function schedule(){
-        setTimeout(function(){
-            if(typeof S!=='undefined' && S.view==='dashboard' && typeof renderDashboardCharts==='function') renderDashboardCharts();
-        },120);
-    }
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',schedule); else schedule();
-    const main=document.getElementById('main');
-    if(main){
-        new MutationObserver(function(){
-            if(typeof S!=='undefined' && S.view==='dashboard' && !document.getElementById('dashboard-charts')) schedule();
-        }).observe(main,{childList:true});
-    }
+    'use strict';
+    // Intencionalmente vacío. El Dashboard no monta gráficas.
 })();
