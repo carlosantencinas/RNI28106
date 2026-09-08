@@ -1,232 +1,300 @@
 // ============================================================
-// CLIENTES - FICHA COMPLETA + VINCULACIÓN CON CONTACTOS
+// CLIENTES - CRUD REAL + FICHA + VINCULACION CON CONTACTOS
+// Reemplaza la tabla de clientes renderizada por views.js cuando
+// la vista activa es "clientes". Esto evita depender de botones
+// o handlers antiguos que impedian editar los registros.
 // ============================================================
 (function (global) {
     'use strict';
 
-    const escC = v => typeof esc === 'function' ? esc(v ?? '') : String(v ?? '').replace(/[&<>\"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[m]));
-    const attrC = v => typeof attr === 'function' ? attr(v ?? '') : escC(v ?? '');
-    const normC = v => String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const norm = v => String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const escC = v => typeof global.esc === 'function' ? global.esc(v ?? '') : String(v ?? '').replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
+    const attrC = v => typeof global.attr === 'function' ? global.attr(v ?? '') : escC(v ?? '');
 
-    function clienteActual(idOrNombre) {
-        const value = String(idOrNombre ?? '');
-        return (S.clientes || []).find(c => c.id === value || normC(c.nombre) === normC(value)) || null;
+    function makeId() {
+        return typeof global.uid === 'function' ? global.uid() : `cli-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
     }
 
-    function contactoActual(id) {
-        return (S.contactos || []).find(c => c.id === id) || null;
+    function clienteNombre(c) {
+        return c?.nombre || c?.razonSocial || c?.cliente || c?.empresa || c?.name || '';
     }
 
-    function contactoCoincidente(cliente) {
+    function contactoNombre(c) {
+        return c?.nombre || c?.name || '';
+    }
+
+    function clienteById(id) {
+        return (S.clientes || []).find(c => String(c.id) === String(id)) || null;
+    }
+
+    function contactoById(id) {
+        return (S.contactos || []).find(c => String(c.id) === String(id)) || null;
+    }
+
+    function proyectosCliente(cliente) {
+        const propios = Array.isArray(cliente?.proyectos)
+            ? cliente.proyectos
+            : String(cliente?.proyectos || '').split(/\n|;/).map(x => x.trim()).filter(Boolean);
+        const nombre = norm(clienteNombre(cliente));
+        const deCot = (S.cotizaciones || [])
+            .filter(c => norm(c.cliente || c.nombreCliente || c.razonSocial) === nombre)
+            .map(c => c.proyecto)
+            .filter(Boolean);
+        return [...new Set([...propios, ...deCot])];
+    }
+
+    function clienteVinculado(cliente) {
         if (!cliente) return null;
         if (cliente.contactoId) {
-            const linked = contactoActual(cliente.contactoId);
-            if (linked) return linked;
+            const c = contactoById(cliente.contactoId);
+            if (c) return c;
         }
-        const key = normC(cliente.contacto || '');
-        const empresa = normC(cliente.nombre || '');
-        return (S.contactos || []).find(c => normC(c.nombre) === key && (!empresa || !c.empresa || normC(c.empresa) === empresa)) || null;
+        const persona = norm(cliente.contacto || cliente.personaContacto);
+        if (!persona) return null;
+        return (S.contactos || []).find(c => norm(contactoNombre(c)) === persona) || null;
     }
 
-    function abrirFichaCliente(idOrNombre) {
-        const existente = clienteActual(idOrNombre);
+    function fichaCliente(id) {
+        const existente = clienteById(id);
         const isNew = !existente;
-        const base = existente ? { ...existente, proyectos: [...(existente.proyectos || [])] } : {
-            id: typeof uid === 'function' ? uid() : `cli-${Date.now()}`,
-            nombre: '', tipoPersona: 'empresa', telefono: '', email: '', whatsapp: '', nit: '', documento: '',
-            direccion: '', ciudad: '', contacto: '', contactoId: '', cargo: '', notas: '', proyectos: []
+        const linked = clienteVinculado(existente);
+        const base = existente ? {
+            ...existente,
+            nombre: clienteNombre(existente),
+            tipoPersona: existente.tipoPersona || existente.tipo || 'empresa',
+            telefono: existente.telefono || '',
+            whatsapp: existente.whatsapp || '',
+            email: existente.email || existente.correo || '',
+            nit: existente.nit || '',
+            documento: existente.documento || existente.ci || '',
+            ciudad: existente.ciudad || '',
+            direccion: existente.direccion || '',
+            contacto: existente.contacto || existente.personaContacto || '',
+            contactoId: existente.contactoId || linked?.id || '',
+            cargo: existente.cargo || linked?.cargo || '',
+            notas: existente.notas || '',
+            proyectos: proyectosCliente(existente)
+        } : {
+            id: makeId(), nombre:'', tipoPersona:'empresa', telefono:'', whatsapp:'', email:'',
+            nit:'', documento:'', ciudad:'', direccion:'', contacto:'', contactoId:'', cargo:'',
+            notas:'', proyectos:[]
         };
-        const linked = contactoCoincidente(base);
-
-        // Si existe un contacto vinculado, completar automáticamente datos vacíos.
-        if (linked) {
-            base.contactoId = linked.id;
-            base.contacto = base.contacto || linked.nombre || '';
-            base.cargo = base.cargo || linked.cargo || '';
-            base.telefono = base.telefono || linked.telefono || '';
-            base.email = base.email || linked.email || '';
-            base.whatsapp = base.whatsapp || linked.whatsapp || '';
-        }
 
         const overlay = document.createElement('div');
         overlay.className = 'overlay';
+        overlay.style.zIndex = '10050';
         overlay.innerHTML = `
-        <div class="modal" style="max-width:820px;width:calc(100% - 24px);">
+        <div class="modal" style="max-width:860px;width:calc(100% - 24px);max-height:92vh;overflow:hidden;">
             <div class="modal-h">
-                <div><div style="font-size:10px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.08em;">CRM · ficha del cliente</div><h3 style="margin-top:2px;">${isNew ? 'Nuevo cliente' : `Editar: ${escC(base.nombre)}`}</h3></div>
-                <button class="close" id="cl-close">&times;</button>
+                <div>
+                    <div style="font-size:10px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.08em;">CRM · Clientes</div>
+                    <h3 style="margin-top:3px;">${isNew ? 'Nuevo cliente' : 'Editar cliente'}</h3>
+                </div>
+                <button class="close" id="cx-close" type="button">&times;</button>
             </div>
-            <div class="modal-body">
-                <div style="padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2,#f7fafb);margin-bottom:16px;">
-                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px;">🔗 Contacto profesional vinculado</div>
+            <div class="modal-body" style="overflow:auto;">
+                <div style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2,#f7fafb);margin-bottom:16px;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:9px;">🔗 Contacto profesional</div>
                     <div class="row2">
                         <div class="field" style="margin-bottom:0;">
-                            <label>Contacto</label>
-                            <select id="cl-contacto-id">
+                            <label>Vincular contacto</label>
+                            <select id="cx-contacto-id">
                                 <option value="">— Sin contacto vinculado —</option>
-                                ${(S.contactos || []).map(ct => `<option value="${attrC(ct.id)}" ${base.contactoId === ct.id ? 'selected' : ''}>${escC(ct.nombre)}${ct.empresa ? ` · ${escC(ct.empresa)}` : ''}${ct.cargo ? ` · ${escC(ct.cargo)}` : ''}</option>`).join('')}
+                                ${(S.contactos || []).map(c => `<option value="${attrC(c.id)}" ${base.contactoId === c.id ? 'selected' : ''}>${escC(contactoNombre(c))}${c.empresa ? ` · ${escC(c.empresa)}` : ''}${c.cargo ? ` · ${escC(c.cargo)}` : ''}</option>`).join('')}
                             </select>
                         </div>
-                        <div style="display:flex;align-items:flex-end;padding-bottom:5px;font-size:11px;color:var(--text-soft);">Al vincularlo, teléfono, correo, WhatsApp, empresa y cargo pueden mantenerse sincronizados.</div>
+                        <div style="font-size:11px;color:var(--text-soft);align-self:end;padding-bottom:8px;">Al seleccionar un contacto se pueden completar automáticamente sus datos.</div>
                     </div>
                 </div>
 
                 <div class="row2">
-                    <div class="field"><label>Nombre / Razón social *</label><input id="cl-nombre" value="${attrC(base.nombre)}" placeholder="Nombre del cliente o institución"></div>
-                    <div class="field"><label>Tipo</label><select id="cl-tipo"><option value="empresa" ${base.tipoPersona==='empresa'?'selected':''}>Empresa / institución</option><option value="persona" ${base.tipoPersona==='persona'?'selected':''}>Persona natural</option></select></div>
+                    <div class="field"><label>Nombre / Razón social *</label><input id="cx-nombre" value="${attrC(base.nombre)}" autocomplete="organization" placeholder="Nombre del cliente o institución"></div>
+                    <div class="field"><label>Tipo de persona</label><select id="cx-tipo"><option value="empresa" ${base.tipoPersona==='empresa'?'selected':''}>Empresa / institución</option><option value="persona" ${base.tipoPersona==='persona'?'selected':''}>Persona natural</option></select></div>
                 </div>
                 <div class="row3">
-                    <div class="field"><label>Teléfono</label><input id="cl-telefono" type="tel" value="${attrC(base.telefono)}" placeholder="Teléfono"></div>
-                    <div class="field"><label>WhatsApp</label><input id="cl-whatsapp" type="tel" value="${attrC(base.whatsapp)}" placeholder="WhatsApp"></div>
-                    <div class="field"><label>Correo electrónico</label><input id="cl-email" type="email" value="${attrC(base.email)}" placeholder="correo@ejemplo.com"></div>
+                    <div class="field"><label>Teléfono</label><input id="cx-telefono" type="tel" value="${attrC(base.telefono)}"></div>
+                    <div class="field"><label>WhatsApp</label><input id="cx-whatsapp" type="tel" value="${attrC(base.whatsapp)}"></div>
+                    <div class="field"><label>Correo electrónico</label><input id="cx-email" type="email" value="${attrC(base.email)}"></div>
                 </div>
                 <div class="row3">
-                    <div class="field"><label>NIT</label><input id="cl-nit" value="${attrC(base.nit)}" placeholder="NIT"></div>
-                    <div class="field"><label>Documento / CI</label><input id="cl-documento" value="${attrC(base.documento)}" placeholder="CI u otro documento"></div>
-                    <div class="field"><label>Ciudad</label><input id="cl-ciudad" value="${attrC(base.ciudad)}" placeholder="Ej. Sucre"></div>
+                    <div class="field"><label>NIT</label><input id="cx-nit" value="${attrC(base.nit)}"></div>
+                    <div class="field"><label>CI / Documento</label><input id="cx-documento" value="${attrC(base.documento)}"></div>
+                    <div class="field"><label>Ciudad</label><input id="cx-ciudad" value="${attrC(base.ciudad)}"></div>
                 </div>
-                <div class="field"><label>Dirección</label><input id="cl-direccion" value="${attrC(base.direccion)}" placeholder="Dirección fiscal o de contacto"></div>
+                <div class="field"><label>Dirección</label><input id="cx-direccion" value="${attrC(base.direccion)}"></div>
                 <div class="row2">
-                    <div class="field"><label>Persona de contacto</label><input id="cl-contacto" value="${attrC(base.contacto)}" placeholder="Nombre del contacto"></div>
-                    <div class="field"><label>Cargo / función</label><input id="cl-cargo" value="${attrC(base.cargo)}" placeholder="Ej. Gerente, Fiscal de obra"></div>
+                    <div class="field"><label>Persona de contacto</label><input id="cx-contacto" value="${attrC(base.contacto)}"></div>
+                    <div class="field"><label>Cargo / función</label><input id="cx-cargo" value="${attrC(base.cargo)}"></div>
                 </div>
-                <div class="field"><label>Proyectos asociados</label><textarea id="cl-proyectos" rows="3" placeholder="Un proyecto por línea">${escC((base.proyectos||[]).join('\n'))}</textarea><div style="font-size:11px;color:var(--text-soft);margin-top:3px;">También se agregan automáticamente los proyectos encontrados en tus cotizaciones.</div></div>
-                <div class="field"><label>Notas</label><textarea id="cl-notas" rows="3" placeholder="Observaciones, preferencias, condiciones comerciales, etc.">${escC(base.notas)}</textarea></div>
+                <div class="field"><label>Proyectos asociados</label><textarea id="cx-proyectos" rows="3" placeholder="Un proyecto por línea">${escC(base.proyectos.join('\n'))}</textarea></div>
+                <div class="field"><label>Notas</label><textarea id="cx-notas" rows="3" placeholder="Observaciones y datos adicionales">${escC(base.notas)}</textarea></div>
             </div>
-            <div class="modal-foot"><button class="btn btn-ghost" id="cl-cancel">Cancelar</button><button class="btn btn-primary" id="cl-save">${isNew?'Crear cliente':'Guardar cambios'}</button></div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" id="cx-cancel" type="button">Cancelar</button>
+                <button class="btn btn-primary" id="cx-save" type="button">${isNew ? 'Crear cliente' : 'Guardar cambios'}</button>
+            </div>
         </div>`;
         document.body.appendChild(overlay);
 
-        const fillFromContact = () => {
-            const id = overlay.querySelector('#cl-contacto-id').value;
-            const ct = contactoActual(id);
-            if (!ct) return;
-            const setIfEmpty = (selector, value) => { const el = overlay.querySelector(selector); if (el && !el.value.trim()) el.value = value || ''; };
-            setIfEmpty('#cl-contacto', ct.nombre);
-            setIfEmpty('#cl-cargo', ct.cargo);
-            setIfEmpty('#cl-telefono', ct.telefono);
-            setIfEmpty('#cl-whatsapp', ct.whatsapp);
-            setIfEmpty('#cl-email', ct.email);
-            if (!overlay.querySelector('#cl-nombre').value.trim() && ct.empresa) overlay.querySelector('#cl-nombre').value = ct.empresa;
-        };
-        overlay.querySelector('#cl-contacto-id').addEventListener('change', fillFromContact);
-
         const close = () => overlay.remove();
-        overlay.querySelector('#cl-close').onclick = close;
-        overlay.querySelector('#cl-cancel').onclick = close;
+        overlay.querySelector('#cx-close').onclick = close;
+        overlay.querySelector('#cx-cancel').onclick = close;
         overlay.addEventListener('mousedown', e => { if (e.target === overlay) close(); });
 
-        overlay.querySelector('#cl-save').onclick = async () => {
-            const nombre = overlay.querySelector('#cl-nombre').value.trim();
-            if (!nombre) { toast('⚠️ El nombre / razón social es obligatorio.'); return; }
-            const key = normC(nombre);
-            const duplicado = (S.clientes || []).find(x => normC(x.nombre) === key && x.id !== base.id);
-            if (duplicado) { toast('⚠️ Ya existe un cliente con ese nombre.'); return; }
-
-            const proyectosManuales = overlay.querySelector('#cl-proyectos').value.split('\n').map(x => x.trim()).filter(Boolean);
-            const proyectosCot = (S.cotizaciones || []).filter(x => normC(x.cliente) === key).map(x => x.proyecto).filter(Boolean);
-            const contactoId = overlay.querySelector('#cl-contacto-id').value || '';
-            const ct = contactoActual(contactoId);
-            const nuevo = {
-                ...base,
-                nombre,
-                tipoPersona: overlay.querySelector('#cl-tipo').value,
-                telefono: overlay.querySelector('#cl-telefono').value.trim(),
-                whatsapp: overlay.querySelector('#cl-whatsapp').value.trim(),
-                email: overlay.querySelector('#cl-email').value.trim(),
-                nit: overlay.querySelector('#cl-nit').value.trim(),
-                documento: overlay.querySelector('#cl-documento').value.trim(),
-                ciudad: overlay.querySelector('#cl-ciudad').value.trim(),
-                direccion: overlay.querySelector('#cl-direccion').value.trim(),
-                contacto: overlay.querySelector('#cl-contacto').value.trim(),
-                contactoId,
-                cargo: overlay.querySelector('#cl-cargo').value.trim(),
-                proyectos: [...new Set([...proyectosManuales, ...proyectosCot])],
-                notas: overlay.querySelector('#cl-notas').value.trim()
+        overlay.querySelector('#cx-contacto-id').addEventListener('change', () => {
+            const ct = contactoById(overlay.querySelector('#cx-contacto-id').value);
+            if (!ct) return;
+            const set = (sel, val, onlyEmpty=true) => {
+                const el = overlay.querySelector(sel);
+                if (el && (!onlyEmpty || !el.value.trim())) el.value = val || '';
             };
+            set('#cx-contacto', contactoNombre(ct));
+            set('#cx-cargo', ct.cargo);
+            set('#cx-telefono', ct.telefono);
+            set('#cx-whatsapp', ct.whatsapp);
+            set('#cx-email', ct.email || ct.correo);
+            set('#cx-nombre', ct.empresa || ct.cliente);
+        });
 
-            if (isNew) S.clientes.push(nuevo); else S.clientes = S.clientes.map(x => x.id === nuevo.id ? nuevo : x);
-
-            // Actualización bidireccional: el contacto profesional queda con los datos del cliente.
-            if (ct) {
-                const contactoActualizado = {
-                    ...ct,
-                    empresa: ct.empresa || nuevo.nombre,
-                    telefono: nuevo.telefono || ct.telefono || '',
-                    whatsapp: nuevo.whatsapp || ct.whatsapp || '',
-                    email: nuevo.email || ct.email || '',
-                    cargo: nuevo.cargo || ct.cargo || '',
-                    clienteId: nuevo.id
-                };
-                S.contactos = (S.contactos || []).map(x => x.id === ct.id ? contactoActualizado : x);
+        overlay.querySelector('#cx-save').onclick = async () => {
+            const nombre = overlay.querySelector('#cx-nombre').value.trim();
+            if (!nombre) {
+                if (typeof global.toast === 'function') global.toast('⚠️ El nombre / razón social es obligatorio.');
+                return;
+            }
+            const duplicate = (S.clientes || []).find(c => norm(clienteNombre(c)) === norm(nombre) && String(c.id) !== String(base.id));
+            if (duplicate) {
+                if (typeof global.toast === 'function') global.toast('⚠️ Ya existe un cliente con ese nombre.');
+                return;
             }
 
-            await saveClientes(S.user?.uid);
-            if (ct && typeof saveContactos === 'function') await saveContactos(S.user?.uid);
-            close();
-            render();
-            toast(isNew ? '✅ Cliente creado y contacto vinculado.' : '✅ Ficha del cliente actualizada.');
+            const contactoId = overlay.querySelector('#cx-contacto-id').value || '';
+            const linked = contactoById(contactoId);
+            const proyectos = overlay.querySelector('#cx-proyectos').value.split('\n').map(x => x.trim()).filter(Boolean);
+            const nuevo = {
+                ...base,
+                id: base.id,
+                nombre,
+                tipoPersona: overlay.querySelector('#cx-tipo').value,
+                telefono: overlay.querySelector('#cx-telefono').value.trim(),
+                whatsapp: overlay.querySelector('#cx-whatsapp').value.trim(),
+                email: overlay.querySelector('#cx-email').value.trim(),
+                nit: overlay.querySelector('#cx-nit').value.trim(),
+                documento: overlay.querySelector('#cx-documento').value.trim(),
+                ciudad: overlay.querySelector('#cx-ciudad').value.trim(),
+                direccion: overlay.querySelector('#cx-direccion').value.trim(),
+                contacto: overlay.querySelector('#cx-contacto').value.trim(),
+                contactoId,
+                cargo: overlay.querySelector('#cx-cargo').value.trim(),
+                proyectos: [...new Set(proyectos)],
+                notas: overlay.querySelector('#cx-notas').value.trim()
+            };
+
+            S.clientes = isNew ? [...(S.clientes || []), nuevo] : (S.clientes || []).map(c => String(c.id) === String(nuevo.id) ? nuevo : c);
+
+            // Vinculación bidireccional: el contacto profesional conserva referencia al cliente.
+            if (linked) {
+                S.contactos = (S.contactos || []).map(c => String(c.id) === String(linked.id) ? {
+                    ...c,
+                    clienteId: nuevo.id,
+                    empresa: c.empresa || nuevo.nombre,
+                    telefono: nuevo.telefono || c.telefono || '',
+                    whatsapp: nuevo.whatsapp || c.whatsapp || '',
+                    email: nuevo.email || c.email || '',
+                    cargo: nuevo.cargo || c.cargo || ''
+                } : c);
+            }
+
+            try {
+                if (typeof global.saveClientes !== 'function') throw new Error('saveClientes no está disponible');
+                await global.saveClientes(S.user?.uid);
+                if (linked && typeof global.saveContactos === 'function') await global.saveContactos(S.user?.uid);
+                close();
+                if (typeof global.render === 'function') global.render();
+                if (typeof global.toast === 'function') global.toast(isNew ? '✅ Cliente creado.' : '✅ Cliente actualizado.');
+            } catch (err) {
+                console.error('[Clientes] Error guardando:', err);
+                if (typeof global.toast === 'function') global.toast('❌ No se pudo guardar el cliente. Revisa la consola.');
+            }
         };
     }
 
-    function insertarBotonNuevoCliente() {
-        const main = document.getElementById('main');
-        if (!main || document.getElementById('btn-nuevo-cliente-ficha')) return;
-        const host = main.querySelector('.page-head .page-actions') || main.querySelector('.page-head') || main.firstElementChild;
-        if (!host) return;
-        const btn = document.createElement('button');
-        btn.id = 'btn-nuevo-cliente-ficha';
-        btn.className = 'btn btn-primary';
-        btn.type = 'button';
-        btn.innerHTML = (typeof ICONS !== 'undefined' && ICONS.plus ? ICONS.plus + ' ' : '+ ') + 'Nuevo cliente';
-        btn.onclick = () => abrirFichaCliente('');
-        host.appendChild(btn);
-    }
-
-    function insertarBotonesFila() {
+    function renderClientesCRUD() {
+        if (!global.S || S.view !== 'clientes') return;
         const main = document.getElementById('main');
         if (!main) return;
+        if (main.dataset.clientesCrud === '1') return;
+
+        main.dataset.clientesCrud = '1';
         const clientes = S.clientes || [];
-        if (!clientes.length) return;
+        const rows = clientes.map(c => {
+            const proyectos = proyectosCliente(c);
+            const ct = clienteVinculado(c);
+            return `<tr>
+                <td style="font-weight:600;min-width:180px;">${escC(clienteNombre(c) || 'Sin nombre')}</td>
+                <td>${escC(c.tipoPersona === 'persona' ? 'Persona' : 'Empresa')}</td>
+                <td>${escC(c.telefono || '')}</td>
+                <td>${escC(c.email || c.correo || '')}</td>
+                <td>${escC(ct?.nombre || c.contacto || '')}</td>
+                <td>${escC(c.ciudad || '')}</td>
+                <td class="tnum">${proyectos.length}</td>
+                <td><div class="rowactions"><button class="iconbtn" type="button" data-cx-edit="${attrC(c.id)}" title="Editar cliente">${global.ICONS?.edit || '✎'}</button></div></td>
+            </tr>`;
+        }).join('');
 
-        main.querySelectorAll('table tbody tr').forEach(tr => {
-            if (tr.querySelector('[data-edit-cliente-ficha]')) return;
-            const cells = [...tr.querySelectorAll('td')];
-            if (!cells.length) return;
+        main.innerHTML = `
+        <div class="page-head">
+            <div><div class="eyebrow">GESTIÓN PROFESIONAL</div><h2>Clientes</h2><p class="muted">Base de clientes y organizaciones, vinculada con Contactos profesionales.</p></div>
+            <div class="page-actions"><button class="btn btn-primary" id="cx-new" type="button">${global.ICONS?.plus || '+'} Nuevo cliente</button></div>
+        </div>
+        <div class="kpi-grid" style="margin-bottom:16px;">
+            <div class="kpi"><div class="kpi-label">Clientes</div><div class="kpi-value">${clientes.length}</div></div>
+            <div class="kpi"><div class="kpi-label">Con contacto vinculado</div><div class="kpi-value">${clientes.filter(c => !!clienteVinculado(c)).length}</div></div>
+            <div class="kpi"><div class="kpi-label">Con teléfono</div><div class="kpi-value">${clientes.filter(c => c.telefono || c.whatsapp).length}</div></div>
+            <div class="kpi"><div class="kpi-label">Con proyectos</div><div class="kpi-value">${clientes.filter(c => proyectosCliente(c).length).length}</div></div>
+        </div>
+        <div class="card">
+            <div class="card-head"><div><h3>Base de clientes</h3><span class="muted">${clientes.length ? 'Selecciona Editar para modificar cualquier dato.' : 'Aún no tienes clientes registrados.'}</span></div></div>
+            ${clientes.length ? `<div class="table-wrap"><table><thead><tr><th>Cliente / razón social</th><th>Tipo</th><th>Teléfono</th><th>Correo</th><th>Contacto</th><th>Ciudad</th><th>Proyectos</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">${global.ICONS?.empty || ''}<div>No hay clientes registrados.</div><button class="btn btn-primary" id="cx-empty-new" type="button">Crear primer cliente</button></div>`}
+        </div>`;
 
-            // En la tabla de Clientes la primera celda corresponde al cliente. Si no coincide,
-            // buscamos cualquier celda cuyo texto corresponda a un cliente registrado.
-            let cliente = clientes.find(c => normC(c.nombre) === normC(cells[0]?.textContent));
-            if (!cliente) cliente = clientes.find(c => cells.some(td => normC(td.textContent) === normC(c.nombre)));
-            if (!cliente) return;
-
-            let td = cells[cells.length - 1];
-            if (!td) td = tr.appendChild(document.createElement('td'));
-            const wrap = td.querySelector('.rowactions') || td.appendChild(Object.assign(document.createElement('div'), { className:'rowactions' }));
-            if (wrap.querySelector('[data-edit-cliente-ficha]')) return;
-            const btn = document.createElement('button');
-            btn.type = 'button'; btn.className = 'iconbtn'; btn.title = 'Editar ficha del cliente'; btn.setAttribute('data-edit-cliente-ficha', cliente.id);
-            btn.innerHTML = typeof ICONS !== 'undefined' && ICONS.edit ? ICONS.edit : '✎';
-            btn.onclick = () => abrirFichaCliente(cliente.id);
-            wrap.prepend(btn);
-        });
+        main.querySelector('#cx-new')?.addEventListener('click', () => fichaCliente(''));
+        main.querySelector('#cx-empty-new')?.addEventListener('click', () => fichaCliente(''));
+        main.querySelectorAll('[data-cx-edit]').forEach(btn => btn.addEventListener('click', () => fichaCliente(btn.getAttribute('data-cx-edit'))));
     }
 
     function enhance() {
         if (!global.S || S.view !== 'clientes') return;
-        insertarBotonNuevoCliente();
-        insertarBotonesFila();
+        renderClientesCRUD();
     }
 
-    global.abrirFichaCliente = abrirFichaCliente;
+    global.abrirFichaCliente = fichaCliente;
     global.enhanceClientesData = enhance;
 
-    const startObserver = () => {
+    let lastView = '';
+    function watch() {
         const main = document.getElementById('main');
-        if (!main) return setTimeout(startObserver, 100);
-        const observer = new MutationObserver(() => setTimeout(enhance, 0));
-        observer.observe(main, { childList:true, subtree:true });
-        setTimeout(enhance, 100);
-    };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObserver); else startObserver();
+        if (!main) return setTimeout(watch, 100);
+        const observer = new MutationObserver(() => {
+            if (!global.S) return;
+            if (S.view !== 'clientes') {
+                main.dataset.clientesCrud = '0';
+                lastView = S.view;
+                return;
+            }
+            // El render principal acaba de cambiar el contenido. Intervenimos una sola vez.
+            if (main.dataset.clientesCrud !== '1') setTimeout(enhance, 0);
+        });
+        observer.observe(main, { childList:true, subtree:false });
+        setInterval(() => {
+            if (!global.S || S.view !== 'clientes') return;
+            if (lastView !== 'clientes') {
+                lastView = 'clientes';
+                main.dataset.clientesCrud = '0';
+                enhance();
+            }
+        }, 250);
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
 })(window);
