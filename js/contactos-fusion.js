@@ -3,7 +3,6 @@
 'use strict';
 if(w.__contactosCleanLoaded)return;
 w.__contactosCleanLoaded=true;
-const S=w.S;
 const esc=v=>w.esc?w.esc(v??''):String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
 const attr=v=>w.attr?w.attr(v??''):esc(v);
 const norm=v=>String(v??'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
