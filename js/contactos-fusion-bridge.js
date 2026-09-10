@@ -1,6 +1,4 @@
-/* Puente de compatibilidad: los módulos globales modernos usan declaraciones const/function
-   que no aparecen como propiedades de window. El módulo de Contactos las necesita para
-   persistencia y refresco después de abrir/editar/guardar fichas. */
+/* Puente de compatibilidad para Contactos + Clientes fusionados. */
 (function(w){
 'use strict';
 try {
@@ -14,12 +12,12 @@ try {
     if (typeof saveCotizaciones === 'function') w.saveCotizaciones = saveCotizaciones;
     if (typeof savePagos === 'function') w.savePagos = savePagos;
 
-    /* El módulo fusionado se carga antes de este puente. Su patchRender no pudo
-       ejecutarse porque render aún no era propiedad de window. Lo hacemos aquí. */
-    if (!w.__contactosRenderPatched && typeof w.render === 'function' && typeof w.S !== 'undefined') {
+    /* contactos-fusion.js se ejecuta antes de este puente, por lo que su
+       patchRender no encontró window.render. Ahora instalamos el puente. */
+    if (!w.__contactosRenderPatched && typeof w.render === 'function' && typeof S !== 'undefined') {
         const originalRender = w.render;
         w.render = function(){
-            if (w.S.view === 'clientes') w.S.view = 'contactos';
+            if (S.view === 'clientes') S.view = 'contactos';
             originalRender();
             document.querySelectorAll('[data-nav="clientes"]').forEach(x => x.remove());
             document.querySelectorAll('#ios-nav-select option[value="clientes"]').forEach(x => x.remove());
@@ -27,6 +25,6 @@ try {
         w.__contactosRenderPatched = true;
     }
 } catch (e) {
-    console.warn('Puente Contactos: no se pudo completar la compatibilidad:', e);
+    console.warn('Puente Contactos: error de compatibilidad:', e);
 }
 })(window);
