@@ -21,6 +21,12 @@
     }
 
     function findPrincipal(cotizacionId, excludedId = null) {
+        const excluded = excludedId ? findById(excludedId) : null;
+        if (excluded?.pagoPrincipalId) {
+            const linked = findById(excluded.pagoPrincipalId);
+            if (linked && Number(linked.monto) > 0) return linked;
+        }
+
         return list().find(p =>
             String(p?.cotizacionId) === String(cotizacionId) &&
             String(p?.id) !== String(excludedId) &&
@@ -50,12 +56,7 @@
             );
         }
 
-        return {
-            ok: true,
-            removed,
-            amount,
-            principal
-        };
+        return { ok: true, removed, amount, principal };
     }
 
     /**
@@ -65,18 +66,19 @@
         const principal = findById(pagoId);
         if (!principal) return { ok: false, reason: 'not_found' };
 
-        const cotizacionId = principal.cotizacionId;
         const before = list().length;
-        S.pagos = list().filter(p =>
-            String(p?.id) !== String(pagoId) &&
-            String(p?.cotizacionId) !== String(cotizacionId)
-        );
+        S.pagos = list().filter(p => {
+            if (String(p?.id) === String(pagoId)) return false;
+            if (p?.pagoPrincipalId && String(p.pagoPrincipalId) === String(pagoId)) return false;
+            if (principal.cotizacionId && String(p?.cotizacionId) === String(principal.cotizacionId)) return false;
+            return true;
+        });
 
         return {
             ok: true,
             removed: principal,
             removedCount: before - S.pagos.length,
-            cotizacionId
+            cotizacionId: principal.cotizacionId || ''
         };
     }
 
@@ -111,14 +113,7 @@
             );
         }
 
-        return {
-            ok: true,
-            pago,
-            principal,
-            oldAmount,
-            newAmount,
-            difference
-        };
+        return { ok: true, pago, principal, oldAmount, newAmount, difference };
     }
 
     const service = Object.freeze({
