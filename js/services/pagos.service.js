@@ -22,10 +22,15 @@
 
     function findPrincipal(cotizacionId, excludedId = null) {
         const excluded = excludedId ? findById(excludedId) : null;
+
+        // La relación explícita es la fuente más segura. Esto evita que un
+        // pago parcial sin cotizacionId termine afectando otra deuda.
         if (excluded?.pagoPrincipalId) {
             const linked = findById(excluded.pagoPrincipalId);
-            if (linked && Number(linked.monto) > 0) return linked;
+            if (linked) return linked;
         }
+
+        if (!cotizacionId) return null;
 
         return list().find(p =>
             String(p?.cotizacionId) === String(cotizacionId) &&
@@ -60,7 +65,9 @@
     }
 
     /**
-     * Elimina una deuda principal y todos sus pagos asociados.
+     * Elimina una deuda principal y sus pagos parciales explícitamente
+     * vinculados. También contempla pagos legacy del mismo cotizacionId
+     * cuando no tienen pagoPrincipalId, pero solo si existe esa cotización.
      */
     function removeDebt(pagoId) {
         const principal = findById(pagoId);
@@ -70,7 +77,13 @@
         S.pagos = list().filter(p => {
             if (String(p?.id) === String(pagoId)) return false;
             if (p?.pagoPrincipalId && String(p.pagoPrincipalId) === String(pagoId)) return false;
-            if (principal.cotizacionId && String(p?.cotizacionId) === String(principal.cotizacionId)) return false;
+            if (
+                principal.cotizacionId &&
+                p?.pagoPrincipalId == null &&
+                String(p?.cotizacionId) === String(principal.cotizacionId) &&
+                Number(p?.monto) === 0 &&
+                Number(p?.montoPagado) > 0
+            ) return false;
             return true;
         });
 
