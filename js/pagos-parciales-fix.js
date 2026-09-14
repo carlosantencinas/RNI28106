@@ -154,6 +154,8 @@
                 id: uid(),
                 pagoPrincipalId: principal.id,
                 cotizacionId: principal.cotizacionId || '',
+                contactoId: principal.contactoId || '',
+                clienteId: principal.clienteId || '',
                 cliente: principal.cliente || '',
                 descripcion: `Pago parcial - ${String(principal.descripcion || 'Deuda').replace(/^(Pago parcial -\s*)+/, '').trim()}`,
                 monto: 0,
