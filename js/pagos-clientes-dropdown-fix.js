@@ -89,6 +89,7 @@
             const result = await service.syncAndPersist();
             global.__rniRelationsSyncedForUser = S.user.uid;
             console.info('RNI sincronización de relaciones:', result);
+            if (result?.changed && typeof render === 'function') render();
         } catch (e) {
             console.error('RNI: error sincronizando contactos/clientes/cotizaciones/pagos:', e);
         }
