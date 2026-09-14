@@ -1,0 +1,1 @@
+La rama fue modificada durante la integración de Hoja de Vida. Se debe restaurar index.html desde el commit d357170615dd830c492fbe13096a88231c13a9ee antes de continuar.
