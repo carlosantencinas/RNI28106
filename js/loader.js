@@ -4,7 +4,7 @@
             if (!url) return reject(new Error('No url'));
             const existing = Array.from(document.getElementsByTagName('script')).find(s => s.src && s.src.indexOf(url) !== -1);
             if (existing) {
-                if (existing.loaded || (url.includes('jspdf') && window.jspdf) || (url.includes('autotable') && window.jspdf?.jsPDF?.API?.autoTable)) return resolve();
+                if (existing.loaded || (url.includes('jspdf') && window.jspdf) || (url.includes('autotable') && window.jspdf?.jsPDF?.API?.autoTable) || (url.includes('xlsx') && window.XLSX)) return resolve();
                 existing.addEventListener('load', () => resolve(), {once:true});
                 existing.addEventListener('error', e => reject(e), {once:true});
                 return;
@@ -30,24 +30,25 @@
         if (window.jspdf?.jsPDF?.API?.autoTable) return Promise.resolve();
         if (jsPDFPromise) return jsPDFPromise;
         jsPDFPromise = (async () => {
-            if (!window.jspdf?.jsPDF) {
-                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-            }
-            if (!window.jspdf?.jsPDF?.API?.autoTable) {
-                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
-            }
+            if (!window.jspdf?.jsPDF) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+            if (!window.jspdf?.jsPDF?.API?.autoTable) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
             if (!window.jspdf?.jsPDF) throw new Error('jsPDF no pudo cargarse');
             if (!window.jspdf.jsPDF.API.autoTable) throw new Error('jsPDF AutoTable no pudo cargarse');
-        })().catch(err => {
-            jsPDFPromise = null;
-            throw err;
-        });
+        })().catch(err => { jsPDFPromise = null; throw err; });
         return jsPDFPromise;
     }
 
-    async function loadXLSX(){
-        if (window.XLSX) return;
-        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    let xlsxPromise = null;
+    function loadXLSX(){
+        if (window.XLSX?.utils?.book_new) return Promise.resolve(window.XLSX);
+        if (xlsxPromise) return xlsxPromise;
+        xlsxPromise = loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js')
+            .then(() => {
+                if (!window.XLSX?.utils?.book_new) throw new Error('XLSX no pudo cargarse');
+                return window.XLSX;
+            })
+            .catch(err => { xlsxPromise = null; throw err; });
+        return xlsxPromise;
     }
 
     function installPdfGuard(){
@@ -55,13 +56,8 @@
             const original = window[name];
             if (typeof original !== 'function' || original.__pdfReadyGuard) return;
             const guarded = async function(...args){
-                try {
-                    await loadJsPDF();
-                } catch (error) {
-                    console.error('Error cargando PDF:', error);
-                    toast('❌ No se pudo cargar la librería PDF. Verifica tu conexión a Internet e inténtalo nuevamente.');
-                    return;
-                }
+                try { await loadJsPDF(); }
+                catch (error) { console.error('Error cargando PDF:', error); toast('❌ No se pudo cargar la librería PDF. Verifica tu conexión a Internet e inténtalo nuevamente.'); return; }
                 return original.apply(this, args);
             };
             guarded.__pdfReadyGuard = true;
@@ -70,14 +66,23 @@
         if (!window.exportPDF || !window.exportDebtsWithColumns) setTimeout(installPdfGuard, 100);
     }
 
-    window.HidroLoader = {
-        loadScript,
-        loadFirebase,
-        loadJsPDF,
-        loadXLSX
-    };
+    function installXlsxGuard(){
+        const original = window.exportHojaVida;
+        if (typeof original !== 'function' || original.__xlsxReadyGuard) {
+            if (typeof original !== 'function') setTimeout(installXlsxGuard, 100);
+            return;
+        }
+        const guarded = async function(...args){
+            try { await loadXLSX(); }
+            catch (error) { console.error('Error cargando XLSX:', error); toast('❌ No se pudo cargar la librería Excel. Verifica tu conexión a Internet e inténtalo nuevamente.'); return; }
+            return original.apply(this, args);
+        };
+        guarded.__xlsxReadyGuard = true;
+        window.exportHojaVida = guarded;
+    }
 
-    // Precargar PDF al iniciar y evitar la condición de carrera al exportar.
+    window.HidroLoader = { loadScript, loadFirebase, loadJsPDF, loadXLSX };
     loadJsPDF().catch(err => console.warn('PDF se cargará bajo demanda:', err));
     setTimeout(installPdfGuard, 0);
+    setTimeout(installXlsxGuard, 0);
 })();
