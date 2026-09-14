@@ -1,0 +1,1 @@
+(function(){'use strict';function start(){if(window.renderHojaVidaExtras)window.renderHojaVidaExtras()}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();setTimeout(start,500)})();
