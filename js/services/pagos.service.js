@@ -23,8 +23,7 @@
     function findPrincipal(cotizacionId, excludedId = null) {
         const excluded = excludedId ? findById(excludedId) : null;
 
-        // La relación explícita es la fuente más segura. Esto evita que un
-        // pago parcial sin cotizacionId termine afectando otra deuda.
+        // La relación explícita es la fuente más segura.
         if (excluded?.pagoPrincipalId) {
             const linked = findById(excluded.pagoPrincipalId);
             if (linked) return linked;
@@ -39,9 +38,19 @@
         ) || null;
     }
 
+    function isPrincipal(pago) {
+        if (!pago) return false;
+        return Number(pago.monto) > 0 && !pago.pagoPrincipalId &&
+            list().some(other =>
+                String(other?.id) !== String(pago.id) &&
+                String(other?.pagoPrincipalId) === String(pago.id)
+            );
+    }
+
     /**
      * Elimina un pago registrado y descuenta su monto del pago principal.
-     * No muestra UI ni llama a render(); eso corresponde a la vista/controlador.
+     * Una deuda principal debe eliminarse exclusivamente mediante removeDebt(),
+     * para no dejar pagos parciales huérfanos.
      */
     function removeRegisteredPayment(pagoId) {
         const pagos = list();
@@ -49,6 +58,8 @@
         if (index === -1) return { ok: false, reason: 'not_found' };
 
         const removed = pagos[index];
+        if (isPrincipal(removed)) return { ok: false, reason: 'principal_payment' };
+
         const amount = Math.max(0, Number(removed?.montoPagado || 0));
         const principal = findPrincipal(removed?.cotizacionId, pagoId);
 
@@ -67,7 +78,8 @@
     /**
      * Elimina una deuda principal y sus pagos parciales explícitamente
      * vinculados. También contempla pagos legacy del mismo cotizacionId
-     * cuando no tienen pagoPrincipalId, pero solo si existe esa cotización.
+     * cuando no tienen pagoPrincipalId, pero solo si son movimientos con
+     * monto=0 y montoPagado>0.
      */
     function removeDebt(pagoId) {
         const principal = findById(pagoId);
@@ -104,6 +116,8 @@
         if (!pago) return { ok: false, reason: 'not_found' };
 
         const principal = findPrincipal(pago.cotizacionId, pagoId);
+        if (!principal) return { ok: false, reason: 'principal_payment' };
+
         const oldAmount = Number(pago.montoPagado || 0);
         const newAmount = Number(changes.montoPagado);
 
@@ -119,7 +133,7 @@
         pago.notas = changes.notas || pago.notas;
 
         const difference = newAmount - oldAmount;
-        if (principal && difference !== 0) {
+        if (difference !== 0) {
             principal.montoPagado = Math.max(
                 0,
                 Number(principal.montoPagado || 0) + difference
