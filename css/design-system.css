@@ -1,0 +1,205 @@
+:root {
+    --panel: var(--surface);
+    --surface-subtle: #F7F8F8;
+    --border-subtle: #E7E3DB;
+    --text-muted: var(--text-soft);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,.045);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.06);
+}
+
+#main.app-view {
+    background: var(--bg);
+}
+
+/* Encabezado único de módulos */
+#main.app-view .app-module-header,
+#main.app-view .page-head,
+#main.app-view .fm-head,
+#main.app-view .hv-head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin: 0 0 22px;
+    padding: 24px 26px;
+    background: linear-gradient(135deg,#102F3A 0%,#1A4A5C 62%,#21677A 100%);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px rgba(16,47,58,.14);
+    overflow: hidden;
+}
+#main.app-view .app-module-header::after,
+#main.app-view .page-head::after,
+#main.app-view .fm-head::after,
+#main.app-view .hv-head::after {
+    content: '';
+    position: absolute;
+    right: -45px;
+    top: -55px;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.055);
+    pointer-events: none;
+}
+#main.app-view .app-module-header h1,
+#main.app-view .page-head h1,
+#main.app-view .fm-head h1,
+#main.app-view .hv-head h1 {
+    position: relative;
+    z-index: 1;
+    color: #fff;
+    font-size: 24px;
+    line-height: 1.2;
+    font-weight: 700;
+    margin: 3px 0 6px;
+}
+#main.app-view .app-module-header p,
+#main.app-view .page-head p:not(.eyebrow),
+#main.app-view .fm-head p:not(.fm-eyebrow),
+#main.app-view .hv-head p:not(.eyebrow) {
+    position: relative;
+    z-index: 1;
+    color: rgba(255,255,255,.76);
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+#main.app-view .app-module-header .eyebrow,
+#main.app-view .page-head .eyebrow,
+#main.app-view .fm-head .fm-eyebrow,
+#main.app-view .hv-head .eyebrow {
+    position: relative;
+    z-index: 1;
+    color: #8FD1D0 !important;
+    font-family: 'JetBrains Mono',monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    margin: 0 0 5px;
+}
+
+/* Tarjetas de resumen: aquí sí se permite acento lateral */
+#main.app-view .app-summary-card,
+#main.app-view .panel,
+#main.app-view .dash-card,
+#main.app-view .content-card {
+    position: relative;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--module-accent,#2F7890);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+#main.app-view .app-kpi,
+#main.app-view .kpi,
+#main.app-view .fm-kpi {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Superficies extensas: blancas, neutras y sin acento lateral */
+#main.app-view .app-content-card,
+#main.app-view .app-table-card,
+#main.app-view .app-chart-card,
+#main.app-view .app-filter-card,
+#main.app-view .table-panel,
+#main.app-view .table-wrap,
+#main.app-view .table-container,
+#main.app-view .data-table-wrap,
+#main.app-view .list-panel,
+#main.app-view .data-card,
+#main.app-view .table-card,
+#main.app-view .fm-table-card,
+#main.app-view .fm-table-wrap,
+#main.app-view .chart-card,
+#main.app-view .chart-panel,
+#main.app-view .chart-container,
+#main.app-view .graph-card,
+#main.app-view .graph-panel,
+#main.app-view .analysis-card,
+#main.app-view .analysis-panel,
+#main.app-view .filter-card,
+#main.app-view .filters-card,
+#main.app-view .filter-panel,
+#main.app-view .fm-filter-card {
+    background: #fff !important;
+    border: 1px solid var(--border) !important;
+    border-left: 1px solid var(--border) !important;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+#main.app-view table,
+#main.app-view .data-table,
+#main.app-view .modern-table,
+#main.app-view .fm-table {
+    width: 100%;
+    background: #fff;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+#main.app-view table thead,
+#main.app-view .data-table thead,
+#main.app-view .modern-table thead,
+#main.app-view .fm-table thead {
+    background: var(--surface-subtle);
+}
+#main.app-view table tbody tr,
+#main.app-view .data-table tbody tr,
+#main.app-view .modern-table tbody tr,
+#main.app-view .fm-table tbody tr {
+    background: #fff;
+}
+#main.app-view table tbody tr:nth-child(even),
+#main.app-view .data-table tbody tr:nth-child(even),
+#main.app-view .modern-table tbody tr:nth-child(even),
+#main.app-view .fm-table tbody tr:nth-child(even) {
+    background: #FCFCFB;
+}
+#main.app-view table tbody tr:hover,
+#main.app-view .data-table tbody tr:hover,
+#main.app-view .modern-table tbody tr:hover,
+#main.app-view .fm-table tbody tr:hover {
+    background: #F4F8F9;
+}
+
+#main.app-view .app-content-card > :first-child,
+#main.app-view .app-table-card > :first-child,
+#main.app-view .app-chart-card > :first-child {
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}
+
+/* Cabeceras de contenido */
+#main.app-view .app-card-head,
+#main.app-view .fm-table-head {
+    background: #fff;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Responsive único */
+@media (max-width:700px) {
+    #main.app-view .app-module-header,
+    #main.app-view .page-head,
+    #main.app-view .fm-head,
+    #main.app-view .hv-head {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 20px 18px;
+        border-radius: 15px;
+    }
+    #main.app-view .app-module-header h1,
+    #main.app-view .page-head h1,
+    #main.app-view .fm-head h1,
+    #main.app-view .hv-head h1 {
+        font-size: 21px;
+    }
+}
