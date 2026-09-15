@@ -58,6 +58,37 @@
                     padding:12px !important; box-sizing:border-box !important;
                 }
 
+                /* Menú móvil: toda la lista debe poder desplazarse verticalmente. */
+                #mobile-nav-overlay {
+                    position:fixed !important;
+                    inset:0 !important;
+                    width:100vw !important;
+                    height:100dvh !important;
+                    min-height:100vh !important;
+                    box-sizing:border-box !important;
+                    padding:64px 0 16px !important;
+                    overflow-y:auto !important;
+                    overflow-x:hidden !important;
+                    -webkit-overflow-scrolling:touch !important;
+                    overscroll-behavior:contain !important;
+                    align-items:flex-start !important;
+                    justify-content:center !important;
+                }
+                #mobile-nav-overlay > div {
+                    width:92% !important;
+                    max-width:420px !important;
+                    max-height:calc(100dvh - 80px) !important;
+                    overflow-y:auto !important;
+                    overflow-x:hidden !important;
+                    -webkit-overflow-scrolling:touch !important;
+                    box-sizing:border-box !important;
+                    flex:0 0 auto !important;
+                }
+                #mobile-nav-overlay .nav-btn-overlay {
+                    min-height:44px !important;
+                    touch-action:manipulation !important;
+                }
+
                 /* Modales: en móvil deben ocupar la ventana, no quedar fuera de ella. */
                 .overlay {
                     position:fixed !important;
