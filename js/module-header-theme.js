@@ -11,9 +11,8 @@
     style.textContent=`
         #main.app-view{background:var(--bg,#F2F0EB);}
         #main.app-view .page-head{
-            --module-accent:var(--primary,#1A4A5C);
-            display:flex;position:relative;align-items:center;justify-content:space-between;
-            gap:20px;margin:0 0 22px;padding:18px 20px 18px 22px;
+            --module-accent:var(--primary,#1A4A5C);display:flex;position:relative;align-items:center;
+            justify-content:space-between;gap:20px;margin:0 0 22px;padding:18px 20px 18px 22px;
             background:var(--surface,#fff);border:1px solid var(--border,#D9D6CE);
             border-left:5px solid var(--module-accent);border-radius:14px;
             box-shadow:0 3px 12px rgba(0,0,0,.045);overflow:hidden;
@@ -22,19 +21,6 @@
         #main.app-view .page-head p:not(.eyebrow){color:var(--text-soft,#5A5A5A);font-size:13px;line-height:1.45;}
         #main.app-view .page-head .eyebrow{color:var(--module-accent)!important;margin-bottom:4px;}
         #main.app-view .page-actions{align-self:center;}
-        #main[data-module-view="analisis"] .page-head{--module-accent:#2878B5}
-        #main[data-module-view="cotizaciones"] .page-head{--module-accent:#2878B5}
-        #main[data-module-view="administrativo"] .page-head{--module-accent:#7A4E9E}
-        #main[data-module-view="documentos"] .page-head{--module-accent:#C47A24}
-        #main[data-module-view="finanzas"] .page-head{--module-accent:#2F8F5B}
-        #main[data-module-view="cuentas"] .page-head{--module-accent:#2878B5}
-        #main[data-module-view="gastos"] .page-head{--module-accent:#C46A3A}
-        #main[data-module-view="clientes"] .page-head{--module-accent:#2F718F}
-        #main[data-module-view="experiencia"] .page-head{--module-accent:#278A82}
-        #main[data-module-view="actividades"] .page-head{--module-accent:#7A62A8}
-        #main[data-module-view="licitaciones"] .page-head{--module-accent:#B8862E}
-        #main[data-module-view="contactos"] .page-head{--module-accent:#4776A8}
-        #main[data-module-view="config"] .page-head{--module-accent:#667085}
         #main.app-view .fm-head,#main.app-view .hv-head{
             --module-accent:var(--primary,#1A4A5C);position:relative;background:var(--surface,#fff);
             border:1px solid var(--border,#D9D6CE);border-left:5px solid var(--module-accent);
@@ -53,4 +39,25 @@
         }
     `;
     document.head.appendChild(style);
+
+    const accents={
+        analisis:'#2878B5',cotizaciones:'#2878B5',administrativo:'#7A4E9E',documentos:'#C47A24',
+        finanzas:'#2F8F5B',cuentas:'#2878B5',gastos:'#C46A3A',clientes:'#2F718F',experiencia:'#278A82',
+        actividades:'#7A62A8',licitaciones:'#B8862E',contactos:'#4776A8',config:'#667085'
+    };
+    function applyAccent(){
+        const main=document.getElementById('main');
+        if(!main)return;
+        const view=window.S&&S.view;
+        const color=accents[view]||'#1A4A5C';
+        main.querySelectorAll('.page-head').forEach(el=>el.style.setProperty('--module-accent',color));
+    }
+    function observe(){
+        const main=document.getElementById('main');
+        if(!main)return setTimeout(observe,100);
+        applyAccent();
+        new MutationObserver(applyAccent).observe(main,{childList:true,subtree:true});
+    }
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',observe,{once:true});
+    else observe();
 })();
