@@ -11,10 +11,30 @@ const TYPES={
 };
 const keys=Object.keys(TYPES);
 const arr=v=>Array.isArray(v)?v:[];
-const escH=v=>typeof esc==='function'?esc(String(v==null?'':v)):String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});
+const escH=v=>typeof esc==='function'?esc(String(v==null?'':v)):String(v==null?'':v).replace(/[&<>\"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m];});
 const yearOf=v=>{const m=String(v||'').match(/(19|20)\d{2}/);return m?Number(m[0]):null;};
 function ensureData(){if(!window.S)return;keys.forEach(k=>{if(!Array.isArray(S[k]))S[k]=[];});}
-async function loadData(){ensureData();if(!S.user||!S.user.uid||typeof cloudGet!=='function')return;await Promise.all(keys.map(async function(k){try{const raw=await cloudGet(S.user.uid,k);const data=typeof parseStoredData==='function'?parseStoredData(raw,[]):raw;if(Array.isArray(data))S[k]=data;}catch(e){console.warn('Hoja de Vida: no se pudo cargar '+k,e);}}));}
+let loadedUid=null;
+let loadedKeys={};
+let loadingPromise=null;
+async function loadData(){
+ ensureData();
+ if(!S.user||!S.user.uid||typeof cloudGet!=='function')return;
+ const uid=S.user.uid;
+ if(loadedUid!==uid){loadedUid=uid;loadedKeys={};}
+ if(loadingPromise)return loadingPromise;
+ loadingPromise=(async function(){
+  await Promise.all(keys.map(async function(k){
+   if(loadedKeys[k])return;
+   try{
+    const raw=await cloudGet(uid,k);
+    const data=typeof parseStoredData==='function'?parseStoredData(raw,[]):raw;
+    if(Array.isArray(data)){S[k]=data;loadedKeys[k]=true;}
+   }catch(e){console.warn('Hoja de Vida: no se pudo cargar '+k,e);}
+  }));
+ })().finally(function(){loadingPromise=null;});
+ return loadingPromise;
+}
 function count(k){return arr(S[k]).length;}
 function totalRecords(){return keys.reduce((n,k)=>n+count(k),0);}
 function experienceYears(){const ranges=[];arr(S.experiencia).forEach(function(r){const a=yearOf(r.desde),b=yearOf(r.hasta)||new Date().getFullYear();if(a&&b>=a)ranges.push([a,b]);});if(!ranges.length)return 0;const min=Math.min.apply(null,ranges.map(x=>x[0])),max=Math.max.apply(null,ranges.map(x=>x[1]));let years=0;for(let y=min;y<=max;y++)if(ranges.some(x=>y>=x[0]&&y<=x[1]))years++;return years;}
@@ -32,7 +52,9 @@ function openDetail(k,i){const r=arr(S[k])[i];if(!r)return;const o=document.crea
 function personalModal(){if(typeof saveDatosPersonales!=='function'||!S.user||!S.user.uid){toast('No se puede editar el perfil en este momento.');return;}const d=profile(),fields=[['nombre','Nombre'],['ci','C.I.'],['lugarExpedicion','Lugar de expedición'],['fechaNacimiento','Fecha de nacimiento'],['nacionalidad','Nacionalidad'],['profesion','Profesión'],['registroProfesional','Registro profesional']];const o=document.createElement('div');o.className='overlay';o.innerHTML='<div class="modal hv-modal"><div class="modal-h"><h3>👤 Editar datos personales</h3><button class="close">×</button></div><div class="modal-body"><div class="hv-form">'+fields.map(function(f){return '<label><span>'+f[1]+'</span><input data-p="'+f[0]+'" value="'+escH(d[f[0]]||'')+'"></label>';}).join('')+'</div></div><div class="modal-foot"><button class="btn btn-ghost cancel">Cancelar</button><button class="btn btn-primary save">Guardar</button></div></div>';document.body.appendChild(o);const close=function(){o.remove();};o.querySelector('.close').onclick=close;o.querySelector('.cancel').onclick=close;o.querySelector('.save').onclick=async function(){const old=Object.assign({},S.datosPersonales);fields.forEach(function(f){S.datosPersonales[f[0]]=o.querySelector('[data-p="'+f[0]+'"]').value.trim();});try{await saveDatosPersonales(S.user.uid);close();renderHV();toast('✅ Datos personales actualizados.');}catch(e){S.datosPersonales=old;toast('❌ No se pudo guardar.');}};}
 function editMessage(k){toast('La edición avanzada de '+TYPES[k].title.toLowerCase()+' se mantiene en su módulo original.');}
 function addMessage(k){toast('El registro de '+TYPES[k].title.toLowerCase()+' se mantiene en su módulo original para evitar duplicar formularios.');}
-async function exportExcel(){try{if(window.HidroLoader&&window.HidroLoader.loadXLSX)await window.HidroLoader.loadXLSX();if(!window.XLSX){toast('❌ Excel no disponible.');return;}const wb=XLSX.utils.book_new();const entries=[['Datos personales',[profile()]]].concat(keys.map(function(k){return [TYPES[k].title,arr(S[k])];})).concat([['Competencias',arr(S.competencias)],['Documentos',arr(S.documentos)]]);entries.forEach(function(pair){const rows=pair[1].length?pair[1]:[{Información:'Sin registros'}];const data=rows.map(function(r){const x={};Object.keys(r).filter(function(k){return k!=='__source';}).forEach(function(k){x[k]=typeof r[k]==='object'?JSON.stringify(r[k]):r[k];});return x;});const ws=XLSX.utils.json_to_sheet(data);if(ws['!ref'])ws['!autofilter']={ref:ws['!ref']};XLSX.utils.book_append_sheet(wb,ws,pair[0].slice(0,31));});XLSX.writeFile(wb,'Hoja_de_Vida_Completa_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('✅ Hoja de Vida exportada.');}catch(e){console.error(e);toast('❌ No se pudo exportar a Excel.');}}
+function splitExcelValue(value){let text=value==null?'':typeof value==='string'?value:JSON.stringify(value);if(text==null)text='';const limit=30000;if(text.length<=limit)return [text];const parts=[];for(let i=0;i<text.length;i+=limit)parts.push(text.slice(i,i+limit));return parts;}
+function excelRows(rows){return (rows.length?rows:[{Información:'Sin registros'}]).map(function(r){const x={};Object.keys(r).filter(function(k){return k!=='__source';}).forEach(function(k){const parts=splitExcelValue(r[k]);if(parts.length===1)x[k]=parts[0];else parts.forEach(function(part,i){x[k+' ['+(i+1)+']']=part;});});return x;});}
+async function exportExcel(){try{if(window.HidroLoader&&window.HidroLoader.loadXLSX)await window.HidroLoader.loadXLSX();if(!window.XLSX){toast('❌ Excel no disponible.');return;}const wb=XLSX.utils.book_new();const entries=[['Datos personales',[profile()]]].concat(keys.map(function(k){return [TYPES[k].title,arr(S[k])];})).concat([['Competencias',arr(S.competencias)],['Documentos',arr(S.documentos)]]);entries.forEach(function(pair){const ws=XLSX.utils.json_to_sheet(excelRows(pair[1]));if(ws['!ref'])ws['!autofilter']={ref:ws['!ref']};XLSX.utils.book_append_sheet(wb,ws,pair[0].slice(0,31));});XLSX.writeFile(wb,'Hoja_de_Vida_Completa_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('✅ Hoja de Vida exportada.');}catch(e){console.error(e);toast('❌ No se pudo exportar a Excel. Revisa la consola para el detalle.');}}
 function filterRows(inp){const sec=inp.closest('[data-hv-type]');if(!sec)return;const q=inp.value.trim().toLowerCase();sec.querySelectorAll('tbody tr').forEach(function(tr){tr.style.display=!q||tr.textContent.toLowerCase().indexOf(q)!==-1?'':'none';});}
 function bind(){document.querySelectorAll('[data-hv-dashboard]').forEach(function(b){b.onclick=function(){renderHV();};});document.querySelectorAll('[data-hv-section]').forEach(function(b){b.onclick=function(){renderHV(b.dataset.hvSection);window.scrollTo({top:0,behavior:'smooth'});};});document.querySelectorAll('[data-hv-search]').forEach(function(inp){inp.addEventListener('input',function(){filterRows(inp);});});document.querySelectorAll('[data-hv-apply]').forEach(function(b){b.onclick=function(){const i=document.querySelector('[data-hv-search="'+b.dataset.hvApply+'"]');if(i)filterRows(i);};});document.querySelectorAll('[data-hv-clear]').forEach(function(b){b.onclick=function(){const i=document.querySelector('[data-hv-search="'+b.dataset.hvClear+'"]');if(i){i.value='';filterRows(i);}};});document.querySelectorAll('[data-hv-detail]').forEach(function(b){b.onclick=function(){openDetail(b.dataset.hvDetail,Number(b.dataset.i));};});document.querySelectorAll('[data-hv-edit]').forEach(function(b){b.onclick=function(){editMessage(b.dataset.hvEdit);};});document.querySelectorAll('[data-hv-add]').forEach(function(b){b.onclick=function(){addMessage(b.dataset.hvAdd);};});document.querySelectorAll('[data-hv-excel]').forEach(function(b){b.onclick=exportExcel;});document.querySelectorAll('[data-hv-edit-personal]').forEach(function(b){b.onclick=personalModal;});}
 function renderHV(k){ensureData();const main=document.getElementById('main');if(!main)return;main.classList.add('app-view');main.classList.remove('dashboard-compact');main.innerHTML=k&&TYPES[k]?sectionView(k):dashboard();bind();}
