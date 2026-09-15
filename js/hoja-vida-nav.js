@@ -9,8 +9,7 @@ function openHV(){
 function cleanDesktop(nav){
  if(!nav)return;
  nav.querySelectorAll('.nav-group').forEach(group=>{
-   const buttons=Array.from(group.querySelectorAll('.nav-btn'));
-   buttons.forEach(btn=>{if((btn.textContent||'').toLowerCase().includes('hoja de vida'))btn.remove();});
+   Array.from(group.querySelectorAll('.nav-btn')).forEach(btn=>{if((btn.textContent||'').toLowerCase().includes('hoja de vida'))btn.remove();});
    if(!group.querySelector('.nav-btn'))group.remove();
  });
 }
@@ -35,7 +34,12 @@ function addIOS(){
  }
  if(select.dataset.hvBound==='1')return;
  select.dataset.hvBound='1';
- select.addEventListener('change',function(){if(this.value==='hoja-vida')openHV();},true);
+ select.addEventListener('change',function(e){
+   if(this.value!=='hoja-vida')return;
+   e.preventDefault();
+   e.stopImmediatePropagation();
+   openHV();
+ },true);
 }
 function addOverlay(){
  const overlay=document.getElementById('mobile-nav-overlay');
@@ -57,7 +61,8 @@ function patchOverlay(){
 function tick(){
  const nav=document.getElementById('nav');
  if(nav){addDesktop(nav);addIOS();}
- addOverlay();patchOverlay();
+ addOverlay();
+ patchOverlay();
 }
 setTimeout(tick,300);
 setInterval(tick,1000);
