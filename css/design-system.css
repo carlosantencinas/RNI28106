@@ -10,9 +10,7 @@
     --shadow-md: 0 4px 16px rgba(0,0,0,.06);
 }
 
-#main.app-view {
-    background: var(--bg);
-}
+#main.app-view { background: var(--bg); }
 
 /* Encabezado único de módulos */
 #main.app-view .app-module-header,
@@ -72,7 +70,8 @@
 #main.app-view .app-module-header .eyebrow,
 #main.app-view .page-head .eyebrow,
 #main.app-view .fm-head .fm-eyebrow,
-#main.app-view .hv-head .eyebrow {
+#main.app-view .hv-head .eyebrow,
+#main.app-view .hv-head .hv-eyebrow {
     position: relative;
     z-index: 1;
     color: #8FD1D0 !important;
@@ -137,6 +136,26 @@
     box-shadow: var(--shadow-sm);
 }
 
+/* Los paneles que contienen gráficos, tablas o filtros también son superficies extensas.
+   Esto evita aplicar el acento lateral a bloques grandes del sistema antiguo. */
+#main.app-view .dash-grid-2 > .panel,
+#main.app-view .panel:has(.table-wrap),
+#main.app-view .panel:has(.chart-bar-row),
+#main.app-view .panel:has(.filter-bar),
+#main.app-view .panel:has(.gantt-container),
+#main.app-view .panel:has(.payment-history) {
+    border-left: 1px solid var(--border);
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+}
+
+#main.app-view .panel-h,
+#main.app-view .panel-head,
+#main.app-view .panel-header {
+    background: #fff;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
 #main.app-view table,
 #main.app-view .data-table,
 #main.app-view .modern-table,
@@ -171,6 +190,18 @@
     background: #F4F8F9;
 }
 
+/* Filtros y controles de búsqueda dentro de superficies grandes */
+#main.app-view .filter-bar,
+#main.app-view .hv-filters,
+#main.app-view .debt-select-all {
+    background: var(--surface-subtle);
+}
+#main.app-view .filter-bar input,
+#main.app-view .filter-bar select,
+#main.app-view .filter-bar textarea {
+    background: #fff;
+}
+
 #main.app-view .app-content-card > :first-child,
 #main.app-view .app-table-card > :first-child,
 #main.app-view .app-chart-card > :first-child {
@@ -185,7 +216,6 @@
     border-bottom: 1px solid var(--border-subtle);
 }
 
-/* Responsive único */
 @media (max-width:700px) {
     #main.app-view .app-module-header,
     #main.app-view .page-head,
