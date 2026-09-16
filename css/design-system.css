@@ -83,9 +83,9 @@
     margin: 0 0 5px;
 }
 
-/* Tarjetas de resumen: aquí sí se permite acento lateral */
+/* Tarjetas de resumen: aquí sí se permite acento lateral.
+   Los .panel generales quedan neutros para que tablas y gráficos no heredenlo. */
 #main.app-view .app-summary-card,
-#main.app-view .panel,
 #main.app-view .dash-card,
 #main.app-view .content-card {
     position: relative;
@@ -100,6 +100,15 @@
 #main.app-view .fm-kpi {
     background: #fff;
     border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Paneles generales: blancos y neutros. */
+#main.app-view .panel {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-left: 1px solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
 }
@@ -136,8 +145,7 @@
     box-shadow: var(--shadow-sm);
 }
 
-/* Los paneles que contienen gráficos, tablas o filtros también son superficies extensas.
-   Esto evita aplicar el acento lateral a bloques grandes del sistema antiguo. */
+/* Compatibilidad con módulos antiguos que aún envuelven contenido largo en .panel */
 #main.app-view .dash-grid-2 > .panel,
 #main.app-view .panel:has(.table-wrap),
 #main.app-view .panel:has(.chart-bar-row),
