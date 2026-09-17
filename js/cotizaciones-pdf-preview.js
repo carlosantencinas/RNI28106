@@ -9,6 +9,84 @@
     let activeUrl = null;
     let activeBlob = null;
     let activeName = 'Cotizacion.pdf';
+    let pdfLoader = null;
+
+    function ensurePdfLoader() {
+        if (pdfLoader) return pdfLoader;
+
+        if (!document.getElementById('cot-pdf-loader-styles')) {
+            const style = document.createElement('style');
+            style.id = 'cot-pdf-loader-styles';
+            style.textContent = `
+                .cot-pdf-loader {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 3000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                    background: rgba(16,47,58,.38);
+                    backdrop-filter: blur(2px);
+                }
+                .cot-pdf-loader[hidden] { display: none; }
+                .cot-pdf-loader-box {
+                    min-width: 250px;
+                    padding: 24px 28px;
+                    background: #fff;
+                    border: 1px solid var(--border, #D9D6CE);
+                    border-radius: 16px;
+                    box-shadow: 0 14px 40px rgba(16,47,58,.18);
+                    text-align: center;
+                    color: var(--text, #102F3B);
+                }
+                .cot-pdf-spinner {
+                    width: 34px;
+                    height: 34px;
+                    margin: 0 auto 12px;
+                    border: 3px solid #dbe5e8;
+                    border-top-color: var(--primary-2, #2F7890);
+                    border-radius: 50%;
+                    animation: cotPdfSpin .75s linear infinite;
+                }
+                .cot-pdf-loader-title {
+                    font-weight: 700;
+                    font-size: 14px;
+                }
+                .cot-pdf-loader-text {
+                    margin-top: 4px;
+                    color: var(--text-soft, #68737A);
+                    font-size: 12px;
+                }
+                @keyframes cotPdfSpin { to { transform: rotate(360deg); } }
+                @media (prefers-reduced-motion: reduce) {
+                    .cot-pdf-spinner { animation: none; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        pdfLoader = document.createElement('div');
+        pdfLoader.className = 'cot-pdf-loader';
+        pdfLoader.hidden = true;
+        pdfLoader.setAttribute('aria-busy', 'true');
+        pdfLoader.innerHTML = `
+            <div class="cot-pdf-loader-box" role="status" aria-live="polite">
+                <div class="cot-pdf-spinner" aria-hidden="true"></div>
+                <div class="cot-pdf-loader-title">Generando cotización…</div>
+                <div class="cot-pdf-loader-text">Preparando el documento PDF</div>
+            </div>`;
+        document.body.appendChild(pdfLoader);
+        return pdfLoader;
+    }
+
+    function showPdfLoader() {
+        ensurePdfLoader().hidden = false;
+    }
+
+    function hidePdfLoader() {
+        if (pdfLoader) pdfLoader.hidden = true;
+    }
 
     function cleanupUrl() {
         if (activeUrl) {
@@ -110,11 +188,20 @@
         const originalSave = api.save;
         if (typeof originalSave !== 'function') return;
 
+        showPdfLoader();
+
         let captured = false;
         api.save = function (filename) {
             captured = true;
-            const blob = this.output('blob');
-            openPreview(blob, filename || 'Cotizacion.pdf');
+            try {
+                const blob = this.output('blob');
+                hidePdfLoader();
+                openPreview(blob, filename || 'Cotizacion.pdf');
+            } catch (error) {
+                hidePdfLoader();
+                toast('⚠️ No se pudo preparar la vista previa del PDF.');
+                throw error;
+            }
             return this;
         };
 
@@ -122,7 +209,10 @@
         // actual de la cotización. Solo reemplazamos temporalmente save().
         setTimeout(() => {
             api.save = originalSave;
-            if (!captured) toast('⚠️ No se pudo capturar el PDF generado.');
+            if (!captured) {
+                hidePdfLoader();
+                toast('⚠️ No se pudo capturar el PDF generado.');
+            }
         }, 0);
     }
 
