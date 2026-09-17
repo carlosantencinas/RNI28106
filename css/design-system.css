@@ -224,6 +224,52 @@
     border-bottom: 1px solid var(--border-subtle);
 }
 
+/* Detalles expandidos y bloques secundarios de pagos: neutros, sin estilos heredados. */
+#main.app-view .table-wrap td[colspan] > div {
+    background: var(--surface-subtle) !important;
+    border-top: 1px solid var(--border-subtle) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+}
+#main.app-view .table-wrap td[colspan] > div > div:first-child,
+#main.app-view .table-wrap td[colspan] > div > div:nth-child(2) {
+    color: var(--text);
+}
+
+/* Bloques auxiliares de la vista de pagos */
+#main.app-view .panel-body > div[style*="FFF3E0"] {
+    background: var(--surface-subtle) !important;
+    border-left: 3px solid var(--primary-2) !important;
+}
+#main.app-view .panel-body > div[style*="margin-top:24px"] {
+    border-top-color: var(--border) !important;
+}
+
+/* Gantt: la pista es una superficie de análisis, no una tarjeta de resumen. */
+#main.app-view .gantt-container {
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+}
+#main.app-view .gantt-legend {
+    color: var(--text-soft);
+}
+
+/* Tablas profesionales: lectura compacta y consistente. */
+#main.app-view table th {
+    color: var(--text-soft);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: .01em;
+}
+#main.app-view table td {
+    color: var(--text);
+    font-size: 12.5px;
+    border-bottom-color: var(--border-subtle);
+}
+#main.app-view table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
 @media (max-width:700px) {
     #main.app-view .app-module-header,
     #main.app-view .page-head,
