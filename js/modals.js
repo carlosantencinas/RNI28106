@@ -19,7 +19,7 @@ function cotActividadHtml(texto) {
     const html = esc(raw).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
     return '<div class="it-actividad-cell">' +
         '<textarea class="it-actividad" name="actividad" placeholder="Descripción (usa **texto** para negrilla)" style="min-height:56px;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-family:\'Inter\',sans-serif;">' + esc(raw) + '</textarea>' +
-        '<div class="it-actividad-preview" aria-label="Vista del formato">' + html.replace(/\n/g,'<br>') + '</div>' +
+        '<div class="it-actividad-preview" aria-label="Vista del formato" style="margin-top:4px;padding:5px 7px;background:var(--surface-subtle);border:1px solid var(--border-subtle);border-radius:4px;font-size:11px;line-height:1.35;white-space:normal;min-height:16px;color:var(--text-soft);">' + html.replace(/\n/g,'<br>') + '</div>' +
         '</div>';
 }
 function itemRowHtmlConPlazo(it) {
