@@ -63,7 +63,7 @@ function openCotModal(cot) {
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
     overlay.innerHTML = `
-        <div class="modal">
+        <div class="modal" style="max-width:980px;width:min(980px,96vw);">
             <div class="modal-h">
                 <h3>${isNew ? 'Nueva cotización' : 'Editar cotización'}</h3>
                 <button class="close" id="m-close">&times;</button>
@@ -99,7 +99,7 @@ function openCotModal(cot) {
                     <span style="text-align:center;"></span>
                 </div>
                 
-                <div class="items-block" id="items-block">
+                <div class="items-block" id="items-block" style="width:100%;overflow-x:auto;padding-bottom:4px;">
                     ${c.items.map(it => itemRowHtmlConPlazo(it)).join('')}
                 </div>
                 <button type="button" class="btn btn-sm btn-ghost" id="btn-add-item" style="margin-bottom:14px;">+ Agregar ítem</button>
@@ -148,6 +148,11 @@ function openCotModal(cot) {
             subtotal += parcial;
             const parcialEl = r.querySelector('.it-subtotal');
             if (parcialEl) parcialEl.textContent = bs(parcial);
+            const ta = r.querySelector('.it-actividad');
+            const preview = r.querySelector('.it-actividad-preview');
+            if (ta && preview) {
+                preview.innerHTML = esc(ta.value || '').replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+            }
             plazoTotal += plazo;
         });
         
