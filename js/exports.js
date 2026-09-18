@@ -630,7 +630,7 @@ function exportPDF(c) {
     // TABLA DE ÍTEMS CON PLAZO
     doc.autoTable({
         startY: y,
-        head: [['Nº', 'Actividad', 'P.U. [Bs]', 'Unidad', 'Cant.', 'Plazo (días)', 'Total [Bs]']],
+        head: [['Nº', 'Actividad', 'P.U. [Bs]', 'Unidad', 'Cant.', 'Plazo (días)', 'Subtotal [Bs]']],
         body: c.items.map((it, i) => [
             String(i + 1),
             it.actividad || '',
@@ -666,7 +666,7 @@ function exportPDF(c) {
     doc.text(`Subtotal [Bs]: ${subtotal.toFixed(2)}`, pageW - 15, y, { align: 'right' });
     y += 6;
     if (Number(c.descuento) > 0) {
-        doc.text(`Descuento / anticipo [Bs]: ${Number(c.descuento).toFixed(2)}`, pageW - 15, y, { align: 'right' });
+        doc.text(`Descuento [Bs]: ${Number(c.descuento).toFixed(2)}`, pageW - 15, y, { align: 'right' });
         y += 6;
     }
     doc.setFont('helvetica', 'bold');
@@ -674,6 +674,17 @@ function exportPDF(c) {
     doc.setTextColor(...primary);
     doc.text(`Monto final [Bs]: ${total.toFixed(2)}`, pageW - 15, y, { align: 'right' });
     y += 6;
+    const anticipo = Math.max(0, Number(c.anticipo) || 0);
+    if (anticipo > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(60, 66, 71);
+        doc.text(`Anticipo [Bs]: ${anticipo.toFixed(2)}`, pageW - 15, y, { align: 'right' });
+        y += 6;
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Saldo después del anticipo [Bs]: ${Math.max(0, total - anticipo).toFixed(2)}`, pageW - 15, y, { align: 'right' });
+        y += 6;
+    }
     
     // MOSTRAR PLAZO TOTAL
     doc.setFont('helvetica', 'normal');
