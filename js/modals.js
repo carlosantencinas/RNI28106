@@ -14,15 +14,24 @@ function itemRowHtml(it) {
 }
 
 // ---- ITEM ROW CON PLAZO ----
+function cotActividadHtml(texto) {
+    const raw = String(texto || '');
+    const html = esc(raw).replace(/\\*\\*([^*\\n]+)\\*\\*/g, '<strong>$1</strong>');
+    return '<div class="it-actividad-cell">' +
+        '<textarea class="it-actividad" name="actividad" placeholder="Descripción (usa **texto** para negrilla)" style="min-height:56px;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-family:\'Inter\',sans-serif;">' + esc(raw) + '</textarea>' +
+        '<div class="it-actividad-preview" aria-label="Vista del formato">' + html.replace(/\\n/g,'<br>') + '</div>' +
+        '</div>';
+}
 function itemRowHtmlConPlazo(it) {
-    return `<div class="item-row" data-item="${it.id}" style="display:grid;grid-template-columns:1fr 80px 70px 50px 70px 30px;gap:8px;align-items:start;margin-bottom:8px;">
-        <textarea class="it-actividad" placeholder="Descripción" style="min-height:36px;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-family:'Inter',sans-serif;">${esc(it.actividad||'')}</textarea>
-        <input class="it-pu" type="number" step="0.01" placeholder="P.U." value="${it.pu||0}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">
-        <input class="it-unidad" placeholder="Unidad" value="${attr(it.unidad||'')}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">
-        <input class="it-cantidad" type="number" step="1" placeholder="Cant." value="${it.cantidad||1}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">
-        <input class="it-plazo" type="number" step="1" placeholder="Plazo" value="${it.plazo||0}" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;width:60px;">
-        <button type="button" class="item-remove" style="background:none;border:none;color:#C0392B;cursor:pointer;font-size:18px;padding:2px 4px;">×</button>
-    </div>`;
+    return '<div class="item-row" data-item="' + it.id + '" style="display:grid;grid-template-columns:minmax(240px,1fr) 82px 72px 52px 72px 88px 30px;gap:7px;align-items:start;margin-bottom:8px;min-width:650px;">' +
+        cotActividadHtml(it.actividad) +
+        '<input class="it-pu" type="number" step="0.01" placeholder="P.U." value="' + (it.pu||0) + '" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">' +
+        '<input class="it-unidad" placeholder="Unidad" value="' + attr(it.unidad||'') + '" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">' +
+        '<input class="it-cantidad" type="number" step="1" placeholder="Cant." value="' + (it.cantidad||1) + '" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">' +
+        '<input class="it-plazo" type="number" step="1" placeholder="Plazo" value="' + (it.plazo||0) + '" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;width:100%;">' +
+        '<div class="it-subtotal" style="font-weight:700;text-align:right;font-size:12px;color:var(--primary);padding:7px 4px;white-space:nowrap;">Bs 0.00</div>' +
+        '<button type="button" class="item-remove" title="Eliminar actividad" style="background:none;border:none;color:#C0392B;cursor:pointer;font-size:18px;padding:2px 4px;align-self:start;justify-self:center;">×</button>' +
+    '</div>';
 }
 
 // ============================================================
@@ -39,6 +48,7 @@ function openCotModal(cot) {
         titulo: '',
         items: [{ id: uid(), actividad: '', pu: 0, unidad: '', cantidad: 1, plazo: 0 }],
         descuento: 0,
+        anticipo: 0,
         plazoDias: 0,
         nota: S.config.defaultNota || '',
         entregables: S.config.defaultEntregables || '',
@@ -79,12 +89,13 @@ function openCotModal(cot) {
                     </div>
                 </div>
                 
-                <div style="display:grid;grid-template-columns:1fr 80px 70px 50px 70px 30px;gap:8px;align-items:center;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-soft);font-weight:600;padding:0 4px;">
+                <div style="display:grid;grid-template-columns:minmax(240px,1fr) 82px 72px 52px 72px 88px 30px;gap:7px;align-items:center;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-soft);font-weight:600;padding:0 4px;">
                     <span>Actividad</span>
                     <span style="text-align:right;">P.U. [Bs]</span>
                     <span>Unidad</span>
                     <span style="text-align:center;">Cant.</span>
                     <span style="text-align:center;">Plazo</span>
+                    <span style="text-align:right;">Subtotal</span>
                     <span style="text-align:center;"></span>
                 </div>
                 
@@ -94,8 +105,12 @@ function openCotModal(cot) {
                 <button type="button" class="btn btn-sm btn-ghost" id="btn-add-item" style="margin-bottom:14px;">+ Agregar ítem</button>
                 
                 <div class="row2">
-                    <div class="field"><label>Descuento [Bs]</label><input type="number" step="0.01" id="f-descuento" value="${c.descuento||0}"></div>
-                    <div class="field"><label>&nbsp;</label><div style="font-size:12.5px;color:var(--text-soft);">Subtotal: <b id="f-subtotal-view">${bs(cotSubtotal(c))}</b></div></div>
+                    <div class="field"><label>Descuento [Bs]</label><input type="number" step="0.01" min="0" id="f-descuento" value="${c.descuento||0}"></div>
+                    <div class="field"><label>Subtotal</label><div style="font-size:12.5px;color:var(--text-soft);"><b id="f-subtotal-view">${bs(cotSubtotal(c))}</b></div></div>
+                </div>
+                <div class="row2">
+                    <div class="field"><label>Anticipo [Bs]</label><input type="number" step="0.01" min="0" id="f-anticipo" value="${c.anticipo||0}"></div>
+                    <div class="field"><label>Saldo después del anticipo</label><div style="font-size:12.5px;color:var(--text-soft);"><b id="f-saldo-view">${bs(Math.max(0, cotTotal(c) - (Number(c.anticipo)||0)))}</b></div></div>
                 </div>
                 
                 <div class="field"><label>Entregables</label><textarea id="f-entregables" style="min-height:80px;">${esc(c.entregables||'')}</textarea></div>
@@ -129,13 +144,20 @@ function openCotModal(cot) {
             const pu = Number(r.querySelector('.it-pu').value) || 0;
             const cant = Number(r.querySelector('.it-cantidad').value) || 0;
             const plazo = Number(r.querySelector('.it-plazo').value) || 0;
-            subtotal += pu * cant;
+            const parcial = pu * cant;
+            subtotal += parcial;
+            const parcialEl = r.querySelector('.it-subtotal');
+            if (parcialEl) parcialEl.textContent = bs(parcial);
             plazoTotal += plazo;
         });
         
-        const desc = Number(overlay.querySelector('#f-descuento').value) || 0;
+        const desc = Math.max(0, Number(overlay.querySelector('#f-descuento').value) || 0);
+        const anticipo = Math.max(0, Number(overlay.querySelector('#f-anticipo')?.value) || 0);
+        const total = Math.max(0, subtotal - desc);
         overlay.querySelector('#f-subtotal-view').textContent = bs(subtotal);
-        overlay.querySelector('#f-total-view').textContent = bs(subtotal - desc);
+        overlay.querySelector('#f-total-view').textContent = bs(total);
+        const saldoEl = overlay.querySelector('#f-saldo-view');
+        if (saldoEl) saldoEl.textContent = bs(Math.max(0, total - anticipo));
         overlay.querySelector('#f-plazo-total').value = plazoTotal;
         overlay.querySelector('#f-plazo-final').textContent = plazoTotal + ' días';
     }
@@ -204,6 +226,7 @@ function openCotModal(cot) {
             titulo,
             items,
             descuento: Number(overlay.querySelector('#f-descuento').value) || 0,
+            anticipo: Number(overlay.querySelector('#f-anticipo').value) || 0,
             plazoDias: plazoTotal,
             entregables: overlay.querySelector('#f-entregables').value.trim(),
             nota: overlay.querySelector('#f-nota').value.trim(),
