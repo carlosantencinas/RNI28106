@@ -200,6 +200,8 @@ function openCotModal(cot) {
     });
     overlay.querySelector('#f-descuento').addEventListener('input', recalc);
 
+    recalc();
+
     const closeModal = () => {
         if (overlay && overlay.parentNode) overlay.remove();
     };
