@@ -40,5 +40,5 @@
 
     async function ensureData(){if(uid())await loadPagosFijos();}
     async function syncPagosFijosDashboard(){if(S.view!=='dashboard')return;await ensureData();if(S.view!=='dashboard')return;const main=document.getElementById('main');if(!main)return;const old=document.getElementById('pagos-fijos-panel');if(old)old.outerHTML=buildPagosFijos();else{const panels=main.querySelectorAll('.panel');const target=panels[panels.length-1];if(target)target.insertAdjacentHTML('afterend',buildPagosFijos());}}
-    global.togglePagoFijo=togglePagoFijo;global.agregarPagoFijo=agregarPagoFijo;global.editarPagoFijo=editarPagoFijo;global.eliminarPagoFijo=eliminarPagoFijo;global.viewFinanzas=viewFinanzas;global.syncPagosFijosDashboard=syncPagosFijosDashboard;global.applyFinanceFilters=applyFinanceFilters;global.bindFinanceFilters=bindFinanceFilters;
+    global.togglePagoFijo=togglePagoFijo;global.agregarPagoFijo=agregarPagoFijo;global.editarPagoFijo=editarPagoFijo;global.eliminarPagoFijo=eliminarPagoFijo;global.buildPagosFijos=buildPagosFijos;global.viewFinanzas=viewFinanzas;global.syncPagosFijosDashboard=syncPagosFijosDashboard;global.applyFinanceFilters=applyFinanceFilters;global.bindFinanceFilters=bindFinanceFilters;
 })(window);
