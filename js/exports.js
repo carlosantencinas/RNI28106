@@ -585,7 +585,9 @@ function exportContactosExcel() {
 // Las coordenadas de la celda solo son definitive al momento de dibujarla.
 function prepareMarkdownActivityCell(doc, cell, rawText, fontSize) {
     const text = String(rawText || '');
-    const maxWidth = Math.max(10, cell.width - cell.padding('left') - cell.padding('right'));
+    // La columna Actividad se define en 75 mm en columnStyles. Usamos ese ancho
+    // directamente porque durante didParseCell cell.width puede no estar resuelto.
+    const maxWidth = 75 - cell.padding('left') - cell.padding('right');
     const lineHeight = fontSize * 0.3528 * 1.18;
     const logicalLines = text.split(/\r?\n/);
     const wrapped = [];
@@ -714,18 +716,7 @@ function exportPDF(c) {
 
     const telefonoCot = (S.config.telefonoWhatsapp || S.datosPersonales?.telefono || '').trim();
     const correoCot = (S.config.correo || '').trim();
-    const contactoCot = [
-        telefonoCot ? `WhatsApp / teléfono: ${telefonoCot}` : '',
-        correoCot ? `Correo: ${correoCot}` : ''
-    ].filter(Boolean).join('   ·   ');
-    if (contactoCot) {
-        doc.setFontSize(8.5);
-        doc.setTextColor(70, 76, 81);
-        doc.text(contactoCot, 15, y);
-        y += 8;
-    } else {
-        y += 3;
-    }
+    y += 3;
 
     // TABLA DE ÍTEMS CON PLAZO
     doc.autoTable({
@@ -848,13 +839,17 @@ function exportPDF(c) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.text(S.config.rni || '', 15, y);
-    if (telefonoCot || correoCot) {
+    if (telefonoCot) {
         y += 4;
-        const firmaContacto = [
-            telefonoCot ? `WhatsApp / teléfono: ${telefonoCot}` : '',
-            correoCot ? `Correo: ${correoCot}` : ''
-        ].filter(Boolean).join('   ·   ');
-        doc.text(firmaContacto, 15, y);
+        doc.setFontSize(8);
+        doc.setTextColor(70, 76, 81);
+        doc.text(`WhatsApp / teléfono: ${telefonoCot}`, 15, y);
+    }
+    if (correoCot) {
+        y += 4;
+        doc.setFontSize(8);
+        doc.setTextColor(70, 76, 81);
+        doc.text(`Correo: ${correoCot}`, 15, y);
     }
 
     const safeName = (c.proyecto || 'cotizacion').replace(/[^a-z0-9]+/gi, '_').slice(0, 40);
