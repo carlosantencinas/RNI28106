@@ -581,10 +581,12 @@ function exportContactosExcel() {
 }
 
 // ---- FORMATO MARKDOWN SIMPLE PARA ACTIVIDADES DEL PDF ----
-function drawMarkdownActivityCell(doc, cell, rawText, fontSize) {
+// Preparar durante didParseCell y dibujar durante didDrawCell.
+// Las coordenadas de la celda solo son definitivas al momento de dibujarla.
+function prepareMarkdownActivityCell(doc, cell, rawText, fontSize) {
     const text = String(rawText || '');
     const maxWidth = Math.max(10, cell.width - cell.padding('left') - cell.padding('right'));
-    const lineHeight = fontSize * 0.3528 * 1.15;
+    const lineHeight = fontSize * 0.3528 * 1.18;
     const logicalLines = text.split(/\r?\n/);
     const wrapped = [];
 
@@ -593,247 +595,89 @@ function drawMarkdownActivityCell(doc, cell, rawText, fontSize) {
         let pos = 0;
         const re = /\*\*([^*\n]+)\*\*/g;
         let m;
+
         while ((m = re.exec(line)) !== null) {
-            if (m.index > pos) segments.push({text: line.slice(pos, m.index), bold: false});
-            segments.push({text: m[1], bold: true});
+            if (m.index > pos) segments.push({ text: line.slice(pos, m.index), bold: false });
+            segments.push({ text: m[1], bold: true });
             pos = m.index + m[0].length;
         }
-        if (pos < line.length) segments.push({text: line.slice(pos), bold: false});
-        if (!segments.length) segments.push({text: '', bold: false});
+        if (pos < line.length) segments.push({ text: line.slice(pos), bold: false });
+        if (!segments.length) segments.push({ text: '', bold: false });
 
         let current = [];
         let width = 0;
+
         segments.forEach(seg => {
             const parts = seg.text.split(/(\s+)/);
+
             parts.forEach(part => {
                 if (!part) return;
+
                 doc.setFont('helvetica', seg.bold ? 'bold' : 'normal');
                 doc.setFontSize(fontSize);
-                const w = doc.getTextWidth(part);
-                if (current.length && width + w > maxWidth && part.trim()) {
+
+                const partWidth = doc.getTextWidth(part);
+                const isSpace = !part.trim();
+
+                if (current.length && !isSpace && width + partWidth > maxWidth) {
                     wrapped.push(current);
                     current = [];
                     width = 0;
                 }
-                current.push({text: part, bold: seg.bold});
-                width += w;
+
+                if (!(isSpace && !current.length)) {
+                    current.push({ text: part, bold: seg.bold });
+                    width += partWidth;
+                }
             });
         });
+
         wrapped.push(current);
     });
 
-    cell.text = [];
-    cell.styles.valign = 'top';
-    cell.styles.minCellHeight = Math.max(cell.styles.minCellHeight || 0,
-        wrapped.length * lineHeight + cell.padding('top') + cell.padding('bottom'));
+    if (!wrapped.length) wrapped.push([]);
 
-    doc.setFontSize(fontSize);
+    // Mantener el texto vacío para que AutoTable calcule la celda,
+    // pero evitar que vuelva a imprimir el contenido original.
+    cell.text = [''];
+    cell.styles.valign = 'top';
+    cell.styles.overflow = 'hidden';
+    cell.styles.minCellHeight = Math.max(
+        cell.styles.minCellHeight || 0,
+        wrapped.length * lineHeight + cell.padding('top') + cell.padding('bottom')
+    );
+    cell._markdownActivityLines = wrapped;
+    cell._markdownActivityFontSize = fontSize;
+}
+
+function drawPreparedMarkdownActivityCell(doc, cell) {
+    const lines = cell._markdownActivityLines;
+    const fontSize = cell._markdownActivityFontSize || 8.5;
+    if (!lines) return;
+
+    const x0 = cell.x + cell.padding('left');
     let y = cell.y + cell.padding('top') + fontSize * 0.3528 * 0.82;
-    wrapped.forEach(parts => {
-        let x = cell.x + cell.padding('left');
-        parts.forEach(part => {
-            if (!part.text) return;
+    const maxY = cell.y + cell.height - cell.padding('bottom');
+
+    doc.setTextColor(30, 36, 41);
+
+    for (const parts of lines) {
+        if (y > maxY + 0.5) break;
+
+        let x = x0;
+        for (const part of parts) {
+            if (!part.text) continue;
+
             doc.setFont('helvetica', part.bold ? 'bold' : 'normal');
             doc.setFontSize(fontSize);
             doc.text(part.text, x, y);
             x += doc.getTextWidth(part.text);
-        });
-        y += lineHeight;
-    });
+        }
+
+        y += fontSize * 0.3528 * 1.18;
+    }
 }
 
-// ---- EXPORTAR PDF - COTIZACIONES ----
-// ---- EXPORTAR PDF - COTIZACIONES (CON PLAZO) ----
-function exportPDF(c) {
-    if (!c) { toast('No se encontró la cotización.'); return; }
-    if (!window.jspdf) { toast('La librería de PDF aún está cargando.'); return; }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const pageW = doc.internal.pageSize.getWidth();
-    const primary = [26, 74, 92];
-    let y = 18;
-
-    if (S.config.logo) {
-        try { doc.addImage(S.config.logo, 'PNG', 15, 10, 16, 16); } catch (e) {}
-    }
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.setTextColor(...primary);
-    doc.text('COTIZACIÓN', pageW / 2, y, { align: 'center' });
-    y += 8;
-
-    doc.setFontSize(12);
-    doc.setTextColor(30, 36, 41);
-    const titleLines = doc.splitTextToSize(c.titulo || '', 170);
-    doc.text(titleLines, pageW / 2, y, { align: 'center' });
-    y += titleLines.length * 6 + 4;
-
-    doc.setDrawColor(...primary);
-    doc.setLineWidth(0.5);
-    doc.line(15, y, pageW - 15, y);
-    y += 8;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Proyecto:', 15, y);
-    doc.setFont('helvetica', 'normal');
-    const projLines = doc.splitTextToSize(c.proyecto || '—', 150);
-    doc.text(projLines, 38, y);
-    y += Math.max(5, projLines.length * 5);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Cliente:', 15, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(c.cliente || '—', 38, y);
-    y += 5;
-
-    const contactoCot = [
-        S.config.telefonoWhatsapp ? `WhatsApp: ${S.config.telefonoWhatsapp}` : '',
-        S.config.correo ? `Correo: ${S.config.correo}` : ''
-    ].filter(Boolean).join('   ·   ');
-    if (contactoCot) {
-        doc.setFontSize(8.5);
-        doc.setTextColor(70, 76, 81);
-        doc.text(contactoCot, 15, y);
-        y += 8;
-    } else {
-        y += 3;
-    }
-
-    // TABLA DE ÍTEMS CON PLAZO
-    doc.autoTable({
-        startY: y,
-        head: [['Nº', 'Actividad', 'P.U. [Bs]', 'Unidad', 'Cant.', 'Plazo (días)', 'Subtotal [Bs]']],
-        body: c.items.map((it, i) => [
-            String(i + 1),
-            it.actividad || '',
-            (Number(it.pu) || 0).toFixed(2),
-            it.unidad || '',
-            String(it.cantidad || 0),
-            String(it.plazo || 0),
-            ((Number(it.pu) || 0) * (Number(it.cantidad) || 0)).toFixed(2)
-        ]),
-        styles: { fontSize: 8.5, cellPadding: 2.5, valign: 'top', textColor: [30, 36, 41] },
-        didParseCell: function(data) {
-            if (data.section === 'body' && data.column.index === 1) {
-                const raw = c.items[data.row.index]?.actividad || '';
-                drawMarkdownActivityCell(doc, data.cell, raw, 8.5);
-            }
-        },
-        didDrawCell: function(data) {
-            // La columna Actividad se dibuja manualmente para conservar **negrillas**.
-        },
-        headStyles: { fillColor: primary, textColor: 255, fontStyle: 'bold', fontSize: 9 },
-        alternateRowStyles: { fillColor: [245, 244, 238] },
-        columnStyles: {
-            0: { cellWidth: 8, halign: 'center' },
-            1: { cellWidth: 75 },
-            2: { cellWidth: 20, halign: 'right' },
-            3: { cellWidth: 22 },
-            4: { cellWidth: 14, halign: 'center' },
-            5: { cellWidth: 18, halign: 'center' },
-            6: { cellWidth: 20, halign: 'right' }
-        },
-        margin: { left: 15, right: 15 }
-    });
-    y = doc.lastAutoTable.finalY + 8;
-
-    const subtotal = cotSubtotal(c);
-    const total = cotTotal(c);
-    const plazoTotal = c.items ? c.items.reduce((sum, item) => sum + (Number(item.plazo) || 0), 0) : 0;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(60, 66, 71);
-    doc.text(`Subtotal [Bs]: ${subtotal.toFixed(2)}`, pageW - 15, y, { align: 'right' });
-    y += 6;
-    if (Number(c.descuento) > 0) {
-        doc.text(`Descuento [Bs]: ${Number(c.descuento).toFixed(2)}`, pageW - 15, y, { align: 'right' });
-        y += 6;
-    }
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(...primary);
-    doc.text(`Monto final [Bs]: ${total.toFixed(2)}`, pageW - 15, y, { align: 'right' });
-    y += 6;
-    const anticipo = Math.max(0, Number(c.anticipo) || 0);
-    if (anticipo > 0) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(60, 66, 71);
-        doc.text(`Anticipo [Bs]: ${anticipo.toFixed(2)}`, pageW - 15, y, { align: 'right' });
-        y += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Saldo después del anticipo [Bs]: ${Math.max(0, total - anticipo).toFixed(2)}`, pageW - 15, y, { align: 'right' });
-        y += 6;
-    }
-    
-    // MOSTRAR PLAZO TOTAL
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(30, 36, 41);
-    doc.text(`Plazo total: ${plazoTotal} días`, pageW - 15, y, { align: 'right' });
-    y += 10;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(30, 36, 41);
-    doc.text(`Plazo a partir del anticipo: ${plazoTotal} días`, 15, y);
-    y += 10;
-
-    if (c.entregables) {
-        if (y > 245) { doc.addPage();
-            y = 20; }
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.setTextColor(30, 36, 41);
-        doc.text('Producto a presentar', 15, y);
-        y += 5;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
-        doc.setTextColor(60, 66, 71);
-        const delLines = doc.splitTextToSize(c.entregables, pageW - 30);
-        doc.text(delLines, 15, y);
-        y += delLines.length * 4 + 6;
-    }
-
-    if (c.nota) {
-        if (y > 255) { doc.addPage();
-            y = 20; }
-        doc.setFontSize(8);
-        doc.setTextColor(100, 105, 110);
-        const noteLines = doc.splitTextToSize(`Nota: ${c.nota}`, pageW - 30);
-        doc.text(noteLines, 15, y);
-        y += noteLines.length * 4 + 10;
-    }
-
-    if (y > 255) { doc.addPage();
-        y = 20; }
-    doc.setFontSize(9);
-    doc.setTextColor(30, 36, 41);
-    doc.text(`Fecha: ${fmtDate(c.fecha)}`, 15, y);
-    y += 16;
-    doc.setFont('helvetica', 'bold');
-    doc.text(S.config.nombre || '', 15, y);
-    y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text(S.config.rni || '', 15, y);
-    if (S.config.telefonoWhatsapp || S.config.correo) {
-        y += 4;
-        const firmaContacto = [
-            S.config.telefonoWhatsapp ? `WhatsApp: ${S.config.telefonoWhatsapp}` : '',
-            S.config.correo ? `Correo: ${S.config.correo}` : ''
-        ].filter(Boolean).join('   ·   ');
-        doc.text(firmaContacto, 15, y);
-    }
-
-    const safeName = (c.proyecto || 'cotizacion').replace(/[^a-z0-9]+/gi, '_').slice(0, 40);
-    doc.save(`Cotizacion_${safeName}_${c.fecha}.pdf`);
-    toast('📄 PDF generado correctamente.');
-}
 // ---- EXPORTAR HOJA DE VIDA (EXCEL) ----
 function exportHojaVida() {
     try {
