@@ -1421,6 +1421,10 @@ function viewConfig() {
             <h4 style="font-size:13.5px;color:var(--primary);margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);">Firma para el PDF</h4>
             <div class="field"><label>Nombre / firma</label><input id="cfg-nombre" value="${attr(S.config.nombre)}"></div>
             <div class="field"><label>Credencial (RNI)</label><input id="cfg-rni" value="${attr(S.config.rni)}"></div>
+            <div class="row2">
+                <div class="field"><label>WhatsApp / teléfono</label><input id="cfg-telefono-whatsapp" value="${attr(S.config.telefonoWhatsapp || '')}" placeholder="+591 7XXXXXXX"></div>
+                <div class="field"><label>Correo para cotizaciones</label><input type="email" id="cfg-correo" value="${attr(S.config.correo || '')}" placeholder="correo@ejemplo.com"></div>
+            </div>
         </div>
         <div style="margin-bottom:24px;">
             <h4 style="font-size:13.5px;color:var(--primary);margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);">Logo</h4>
