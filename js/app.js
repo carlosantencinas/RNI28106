@@ -885,6 +885,8 @@ main.querySelectorAll('[data-ver-act]').forEach(b => {
     if (btnSaveCfg) btnSaveCfg.onclick = async () => {
         S.config.nombre = document.getElementById('cfg-nombre').value.trim();
         S.config.rni = document.getElementById('cfg-rni').value.trim();
+        S.config.telefonoWhatsapp = document.getElementById('cfg-telefono-whatsapp')?.value.trim() || '';
+        S.config.correo = document.getElementById('cfg-correo')?.value.trim() || '';
         if (pendingLogo !== undefined) S.config.logo = pendingLogo;
         await saveConfig(S.user?.uid);
         if (S.config.logo) {
