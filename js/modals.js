@@ -29,7 +29,7 @@ function itemRowHtmlConPlazo(it) {
         '<input class="it-unidad" placeholder="Unidad" value="' + attr(it.unidad||'') + '" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">' +
         '<input class="it-cantidad" type="number" step="1" placeholder="Cant." value="' + (it.cantidad||1) + '" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;">' +
         '<input class="it-plazo" type="number" step="1" placeholder="Plazo" value="' + (it.plazo||0) + '" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;width:100%;">' +
-        '<div class="it-subtotal" style="font-weight:700;text-align:right;font-size:12px;color:var(--primary);padding:7px 4px;white-space:nowrap;">Bs 0.00</div>' +
+        '<div class="it-subtotal" style="font-weight:700;text-align:right;font-size:12px;color:var(--primary);padding:7px 4px;white-space:nowrap;">' + bs((Number(it.pu)||0)*(Number(it.cantidad)||0)) + '</div>' +
         '<button type="button" class="item-remove" title="Eliminar actividad" style="background:none;border:none;color:#C0392B;cursor:pointer;font-size:18px;padding:2px 4px;align-self:start;justify-self:center;">×</button>' +
     '</div>';
 }
@@ -188,6 +188,15 @@ function openCotModal(cot) {
                 recalc();
             } else toast('La cotización necesita al menos un ítem.');
         }
+    });
+
+    // Delegación: garantiza que cualquier actividad, incluida la tercera o
+    // posteriores, actualice descripción formateada, subtotal y plazo.
+    overlay.querySelector('#items-block').addEventListener('input', e => {
+        if (e.target.matches('.it-actividad, .it-pu, .it-cantidad, .it-plazo, .it-unidad')) recalc();
+    });
+    overlay.querySelector('#items-block').addEventListener('change', e => {
+        if (e.target.matches('.it-actividad, .it-pu, .it-cantidad, .it-plazo, .it-unidad')) recalc();
     });
 
     overlay.querySelectorAll('input, textarea, select').forEach(el => {
