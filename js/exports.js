@@ -580,6 +580,68 @@ function exportContactosExcel() {
     toast('✅ Excel exportado.');
 }
 
+// ---- FORMATO MARKDOWN SIMPLE PARA ACTIVIDADES DEL PDF ----
+function drawMarkdownActivityCell(doc, cell, rawText, fontSize) {
+    const text = String(rawText || '');
+    const maxWidth = Math.max(10, cell.width - cell.padding('left') - cell.padding('right'));
+    const lineHeight = fontSize * 0.3528 * 1.15;
+    const logicalLines = text.split(/\r?\n/);
+    const wrapped = [];
+
+    logicalLines.forEach(line => {
+        const segments = [];
+        let pos = 0;
+        const re = /\*\*([^*\n]+)\*\*/g;
+        let m;
+        while ((m = re.exec(line)) !== null) {
+            if (m.index > pos) segments.push({text: line.slice(pos, m.index), bold: false});
+            segments.push({text: m[1], bold: true});
+            pos = m.index + m[0].length;
+        }
+        if (pos < line.length) segments.push({text: line.slice(pos), bold: false});
+        if (!segments.length) segments.push({text: '', bold: false});
+
+        let current = [];
+        let width = 0;
+        segments.forEach(seg => {
+            const parts = seg.text.split(/(\s+)/);
+            parts.forEach(part => {
+                if (!part) return;
+                doc.setFont('helvetica', seg.bold ? 'bold' : 'normal');
+                doc.setFontSize(fontSize);
+                const w = doc.getTextWidth(part);
+                if (current.length && width + w > maxWidth && part.trim()) {
+                    wrapped.push(current);
+                    current = [];
+                    width = 0;
+                }
+                current.push({text: part, bold: seg.bold});
+                width += w;
+            });
+        });
+        wrapped.push(current);
+    });
+
+    cell.text = [];
+    cell.styles.valign = 'top';
+    cell.styles.minCellHeight = Math.max(cell.styles.minCellHeight || 0,
+        wrapped.length * lineHeight + cell.padding('top') + cell.padding('bottom'));
+
+    doc.setFontSize(fontSize);
+    let y = cell.y + cell.padding('top') + fontSize * 0.3528 * 0.82;
+    wrapped.forEach(parts => {
+        let x = cell.x + cell.padding('left');
+        parts.forEach(part => {
+            if (!part.text) return;
+            doc.setFont('helvetica', part.bold ? 'bold' : 'normal');
+            doc.setFontSize(fontSize);
+            doc.text(part.text, x, y);
+            x += doc.getTextWidth(part.text);
+        });
+        y += lineHeight;
+    });
+}
+
 // ---- EXPORTAR PDF - COTIZACIONES ----
 // ---- EXPORTAR PDF - COTIZACIONES (CON PLAZO) ----
 function exportPDF(c) {
@@ -625,7 +687,20 @@ function exportPDF(c) {
     doc.text('Cliente:', 15, y);
     doc.setFont('helvetica', 'normal');
     doc.text(c.cliente || '—', 38, y);
-    y += 8;
+    y += 5;
+
+    const contactoCot = [
+        S.config.telefonoWhatsapp ? `WhatsApp: ${S.config.telefonoWhatsapp}` : '',
+        S.config.correo ? `Correo: ${S.config.correo}` : ''
+    ].filter(Boolean).join('   ·   ');
+    if (contactoCot) {
+        doc.setFontSize(8.5);
+        doc.setTextColor(70, 76, 81);
+        doc.text(contactoCot, 15, y);
+        y += 8;
+    } else {
+        y += 3;
+    }
 
     // TABLA DE ÍTEMS CON PLAZO
     doc.autoTable({
@@ -641,6 +716,15 @@ function exportPDF(c) {
             ((Number(it.pu) || 0) * (Number(it.cantidad) || 0)).toFixed(2)
         ]),
         styles: { fontSize: 8.5, cellPadding: 2.5, valign: 'top', textColor: [30, 36, 41] },
+        didParseCell: function(data) {
+            if (data.section === 'body' && data.column.index === 1) {
+                const raw = c.items[data.row.index]?.actividad || '';
+                drawMarkdownActivityCell(doc, data.cell, raw, 8.5);
+            }
+        },
+        didDrawCell: function(data) {
+            // La columna Actividad se dibuja manualmente para conservar **negrillas**.
+        },
         headStyles: { fillColor: primary, textColor: 255, fontStyle: 'bold', fontSize: 9 },
         alternateRowStyles: { fillColor: [245, 244, 238] },
         columnStyles: {
@@ -737,6 +821,14 @@ function exportPDF(c) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.text(S.config.rni || '', 15, y);
+    if (S.config.telefonoWhatsapp || S.config.correo) {
+        y += 4;
+        const firmaContacto = [
+            S.config.telefonoWhatsapp ? `WhatsApp: ${S.config.telefonoWhatsapp}` : '',
+            S.config.correo ? `Correo: ${S.config.correo}` : ''
+        ].filter(Boolean).join('   ·   ');
+        doc.text(firmaContacto, 15, y);
+    }
 
     const safeName = (c.proyecto || 'cotizacion').replace(/[^a-z0-9]+/gi, '_').slice(0, 40);
     doc.save(`Cotizacion_${safeName}_${c.fecha}.pdf`);
