@@ -660,11 +660,17 @@ function openPagoFromCotizacion(cotizacionId) {
                     <label>Notas adicionales</label>
                     <textarea id="cp-notas" rows="2"></textarea>
                 </div>
-                ${pagosExistentes.length ? `
+                ${(pagosExistentes.length || anticipoPendienteDeAplicar > 0) ? `
                     <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
                         <label style="font-family:'JetBrains Mono';font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-soft);">Historial de pagos</label>
                         <div class="payment-history">
-                            ${pagosExistentes.map(p => `
+                            ${anticipoPendienteDeAplicar > 0 ? `
+                                <div class="entry">
+                                    <span>Anticipo registrado en la cotización</span>
+                                    <span style="font-weight:600;color:var(--success);">${bs(anticipoPendienteDeAplicar)}</span>
+                                </div>
+                            ` : ''}
+                            ${pagosExistentes.filter(p => !principal || String(p.id) !== String(principal.id)).map(p => `
                                 <div class="entry">
                                     <span>
                                         ${fmtDate(p.fecha)} - ${esc(p.descripcion)}
