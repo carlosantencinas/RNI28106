@@ -636,6 +636,7 @@ function viewAdministrativo() {
                         <th>Cliente</th>
                         <th>Proyecto</th>
                         <th class="tright">Monto</th>
+                        <th class="tright">Anticipo</th>
                         <th class="tright">Pagado</th>
                         <th class="tright">Saldo</th>
                         <th>Estado</th>
@@ -645,6 +646,8 @@ function viewAdministrativo() {
                 <tbody>
                     ${pagosPendientes.slice(0, 10).map(p => {
                         const saldo = Number(p.monto) - Number(p.montoPagado || 0);
+                        const cotAnticipo = p.cotizacionId ? S.cotizaciones.find(c => String(c.id) === String(p.cotizacionId)) : null;
+                        const anticipo = Math.max(0, Math.min(Number(p.monto)||0, Number(cotAnticipo?.anticipo)||0));
                         let proyecto = '—';
                         if (p.cotizacionId) {
                             const cot = S.cotizaciones.find(c => c.id === p.cotizacionId);
@@ -656,12 +659,14 @@ function viewAdministrativo() {
                             <td>${esc(p.cliente||'—')}</td>
                             <td>${esc(proyecto)}</td>
                             <td class="tright tnum">${bs(p.monto)}</td>
+                            <td class="tright tnum">${anticipo > 0 ? bs(anticipo) : '—'}</td>
                             <td class="tright tnum">${bs(p.montoPagado||0)}</td>
                             <td class="tright tnum" style="font-weight:600;color:var(--danger);">${bs(saldo)}</td>
                             <td><span class="stamp ${pagoEstado(p)}">${pagoEstado(p)}</span></td>
                             <td>
                                 <div class="rowactions">
                                     <button class="iconbtn" title="Registrar pago" data-register-pago="${p.id}">💰</button>
+                                    ${anticipo > 0 ? `<button class="iconbtn" title="Editar información del anticipo" data-edit-anticipo="${p.cotizacionId}">✏️💰</button>` : ''}
                                     <button class="iconbtn" title="Editar" data-edit-pago="${p.id}">${ICONS.edit}</button>
                                     <button class="iconbtn" title="Eliminar" data-del-pago="${p.id}">${ICONS.trash}</button>
                                 </div>
