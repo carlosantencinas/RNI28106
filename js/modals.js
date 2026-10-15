@@ -582,9 +582,14 @@ function openPagoFromCotizacion(cotizacionId) {
     if (!cot) { toast('Cotización no encontrada'); return; }
 
     const montoTotal = cotTotal(cot);
-    const pagosExistentes = S.pagos.filter(p => p.cotizacionId === cotizacionId);
-    const totalPagado = pagosExistentes.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
-    const saldoPendiente = montoTotal - totalPagado;
+    const pagosExistentes = S.pagos.filter(p => String(p.cotizacionId) === String(cotizacionId));
+    let principal = typeof getPagoPrincipalByCotizacionId === 'function' ? getPagoPrincipalByCotizacionId(cotizacionId) : (pagosExistentes.find(p => Number(p.monto) > 0) || null);
+    const anticipoCotizacion = Math.min(montoTotal, Math.max(0, Number(cot.anticipo) || 0));
+    const anticipoEnHistorial = pagosExistentes.some(p => p.anticipoCotizacion === true || /anticipo/i.test(String(p.descripcion || '')));
+    const totalHistorico = pagosExistentes.filter(p => !principal || String(p.id) !== String(principal.id)).reduce((s, p) => s + Math.max(0, Number(p.montoPagado) || 0), 0);
+    const anticipoPendienteDeAplicar = anticipoCotizacion > 0 && !anticipoEnHistorial ? anticipoCotizacion : 0;
+    const totalPagado = principal ? Math.max(0, Number(principal.montoPagado) || 0, totalHistorico + anticipoPendienteDeAplicar) : totalHistorico + anticipoPendienteDeAplicar;
+    const saldoPendiente = Math.max(0, montoTotal - totalPagado);
 
     if (saldoPendiente <= 0.01) {
         toast('✅ Esta cotización ya está completamente pagada.');
@@ -612,7 +617,7 @@ function openPagoFromCotizacion(cotizacionId) {
                 </div>
                 <div class="row2">
                     <div class="field">
-                        <label>Monto ya pagado</label>
+                        <label>${anticipoCotizacion > 0 ? `Pagado a la fecha (incluye anticipo de ${bs(anticipoCotizacion)})` : `Monto ya pagado`}</label>
                         <input value="${bs(totalPagado)}" disabled style="background:#f5f5f5;">
                     </div>
                     <div class="field">
@@ -703,24 +708,37 @@ function openPagoFromCotizacion(cotizacionId) {
             return;
         }
 
+        if (!principal) {
+            principal = {
+                id: uid(), cotizacionId: cotizacionId, cliente: cot.cliente || '',
+                descripcion: cot.titulo || 'Deuda de cotización', monto: montoTotal,
+                montoPagado: Math.min(montoTotal, totalHistorico + anticipoPendienteDeAplicar),
+                fecha: cot.fechaAceptacion || cot.fecha || new Date().toISOString().slice(0, 10),
+                fechaCompromiso: '', notas: anticipoPendienteDeAplicar > 0 ? 'Anticipo inicial tomado de la cotización.' : '',
+                metodoPago: '', comprobante: '', esPagoPrincipal: true
+            };
+            S.pagos.push(principal);
+        }
+        principal.montoPagado = Math.max(0, Number(principal.montoPagado) || 0, totalHistorico + anticipoPendienteDeAplicar);
+        const saldoAntesDelPago = Math.max(0, montoTotal - Number(principal.montoPagado || 0));
+        if (montoPagar > saldoAntesDelPago) {
+            toast('⚠️ El monto supera el saldo pendiente (' + bs(saldoAntesDelPago) + ').');
+            return;
+        }
         const nuevoPago = {
-            id: uid(),
-            cotizacionId: cotizacionId,
-            cliente: cot.cliente,
+            id: uid(), pagoPrincipalId: principal.id, cotizacionId: cotizacionId,
+            cliente: cot.cliente || '',
             descripcion: overlay.querySelector('#cp-desc').value.trim() || 'Pago parcial',
-            monto: montoTotal,
-            montoPagado: montoPagar,
+            monto: 0, montoPagado: montoPagar,
             fecha: overlay.querySelector('#cp-fecha').value,
             fechaCompromiso: overlay.querySelector('#cp-fecha').value,
-            notas: overlay.querySelector('#cp-notas').value.trim(),
-            metodoPago: metodo,
-            comprobante: comprobante
+            notas: overlay.querySelector('#cp-notas').value.trim(), metodoPago: metodo, comprobante: comprobante
         };
-
         S.pagos.push(nuevoPago);
+        principal.montoPagado = Math.min(montoTotal, Math.max(0, Number(principal.montoPagado) || 0) + montoPagar);
         await savePagos(S.user?.uid);
 
-        const totalPagadoActualizado = S.pagos.filter(p => p.cotizacionId === cotizacionId).reduce((s, p) => s + Number(p.montoPagado || 0), 0);
+        const totalPagadoActualizado = Math.max(0, Number(principal.montoPagado) || 0);
         if (totalPagadoActualizado >= montoTotal - 0.01) {
             toast('🎉 ¡Cotización completamente pagada!');
         } else {
