@@ -201,7 +201,7 @@ function viewDashboard() {
 
     const totalCotizado = cots.reduce((s, c) => s + cotTotal(c), 0);
     const totalAceptado = cots.filter(c => c.estado === 'aceptada').reduce((s, c) => s + cotTotal(c), 0);
-    const cotizacionesConDeuda = cots.filter(c => cotTotal(c) > 0);
+    const cotizacionesConDeuda = cots.filter(c => cotTotal(c) > 0 && (c.estado === 'aceptada' || pagos.some(p => String(p.cotizacionId) === String(c.id))));
     const cotizacionIdsFinancieros = new Set(cotizacionesConDeuda.map(c => String(c.id)));
     const pagosIndependientes = pagos.filter(p => !p.cotizacionId || !cotizacionIdsFinancieros.has(String(p.cotizacionId)));
     const totalCobrado = cotizacionesConDeuda.reduce((s, c) => s + (typeof getTotalPagadoByCotizacionId === 'function' ? getTotalPagadoByCotizacionId(c.id) : Math.max(0, Number(c.anticipo) || 0)), 0)
