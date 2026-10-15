@@ -33,8 +33,9 @@ function openFromRow(tr){
  document.body.appendChild(o);updatePreview(o);
 }
 function getPaymentBreakdown(o){
- const payments=Array.isArray(global.S?.pagos)?global.S.pagos:[];
- const quotes=Array.isArray(global.S?.cotizaciones)?global.S.cotizaciones:[];
+ const state=typeof S!=='undefined'?S:null;
+ const payments=Array.isArray(state?.pagos)?state.pagos:[];
+ const quotes=Array.isArray(state?.cotizaciones)?state.cotizaciones:[];
  const quoteId=o.dataset.quoteId||'',paymentId=o.dataset.paymentId||'';
  const quote=quoteId?quotes.find(q=>String(q.id)===String(quoteId)):null;
  let principal=quoteId&&typeof global.getPagoPrincipalByCotizacionId==='function'?global.getPagoPrincipalByCotizacionId(quoteId):null;
@@ -81,7 +82,8 @@ function summary(o){
  updatePreview(o);if(o.dataset.valid!=='1')return '';
  const total=Number(o.dataset.total)||0,paid=Number(o.dataset.paid)||0,actual=o.dataset.actual===''?null:Number(o.dataset.actual),projected=Number(o.dataset.projected)||0;
  const pct=n=>total>0?(n/total*100).toLocaleString('es-BO',{minimumFractionDigits:2,maximumFractionDigits:2}):'0,00';
- const detail=getPaymentBreakdown(o).map((p,i)=>`${i+1}. ${p.date||'Fecha no registrada'} — ${p.desc}: ${money(p.amount)}${p.method?' · '+p.method:''}${p.receipt?' · Comprobante: '+p.receipt:''}`).join('\\n');\n return `*RESUMEN DE PAGOS*\\nCliente: ${o.dataset.client}\\nConcepto: ${o.dataset.concept}\\n\\nTotal: ${money(total)}\\n\\n*Pagos realizados (detalle):*\\n${detail||'Sin detalle individual disponible'}\\n\\nPagos realizados acumulados: ${money(paid)} (${pct(paid)}%)${actual!==null?'\\nPago actual solicitado: '+money(actual)+' ('+pct(actual)+'%)':''}\\n${actual!==null?'Saldo proyectado':'Saldo pendiente'}: ${money(projected)} (${pct(projected)}%)\\n\\nEl pago solicitado se considera pendiente hasta su recepción efectiva.`;
+ const detail=getPaymentBreakdown(o).map((p,i)=>`${i+1}. ${p.date||'Fecha no registrada'} — ${p.desc}: ${money(p.amount)}${p.method?' · '+p.method:''}${p.receipt?' · Comprobante: '+p.receipt:''}`).join('\\n');
+ return `*RESUMEN DE PAGOS*\\nCliente: ${o.dataset.client}\\nConcepto: ${o.dataset.concept}\\n\\nTotal: ${money(total)}\\n\\n*Pagos realizados (detalle):*\\n${detail||'Sin detalle individual disponible'}\\n\\nPagos realizados acumulados: ${money(paid)} (${pct(paid)}%)${actual!==null?'\\nPago actual solicitado: '+money(actual)+' ('+pct(actual)+'%)':''}\\n${actual!==null?'Saldo proyectado':'Saldo pendiente'}: ${money(projected)} (${pct(projected)}%)\\n\\nEl pago solicitado se considera pendiente hasta su recepción efectiva.`;
 }
 async function copySummary(o){
  const s=summary(o);if(!s){alert('El pago solicitado supera el saldo disponible.');return;}
