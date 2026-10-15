@@ -201,8 +201,13 @@ function viewDashboard() {
 
     const totalCotizado = cots.reduce((s, c) => s + cotTotal(c), 0);
     const totalAceptado = cots.filter(c => c.estado === 'aceptada').reduce((s, c) => s + cotTotal(c), 0);
-    const totalCobrado = pagos.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
-    const totalPorCobrar = pagos.reduce((s, p) => s + Math.max(0, Number(p.monto) - Number(p.montoPagado || 0)), 0);
+    const cotizacionesConDeuda = cots.filter(c => cotTotal(c) > 0);
+    const cotizacionIdsFinancieros = new Set(cotizacionesConDeuda.map(c => String(c.id)));
+    const pagosIndependientes = pagos.filter(p => !p.cotizacionId || !cotizacionIdsFinancieros.has(String(p.cotizacionId)));
+    const totalCobrado = cotizacionesConDeuda.reduce((s, c) => s + (typeof getTotalPagadoByCotizacionId === 'function' ? getTotalPagadoByCotizacionId(c.id) : Math.max(0, Number(c.anticipo) || 0)), 0)
+        + pagosIndependientes.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
+    const totalPorCobrar = cotizacionesConDeuda.reduce((s, c) => s + Math.max(0, cotTotal(c) - (typeof getTotalPagadoByCotizacionId === 'function' ? getTotalPagadoByCotizacionId(c.id) : Math.max(0, Number(c.anticipo) || 0))), 0)
+        + pagosIndependientes.reduce((s, p) => s + Math.max(0, Number(p.monto) - Number(p.montoPagado || 0)), 0);
     const totalExperiencia = exp.reduce((s, e) => s + Number(e.monto || 0), 0);
     const edad = calcularEdad(S.datosPersonales.fechaNacimiento);
 
@@ -215,8 +220,8 @@ function viewDashboard() {
     const cotizacionesAceptadas = cots.filter(c => c.estado === 'aceptada');
     const avancePagos = cotizacionesAceptadas.map(c => {
         const montoTotal = cotTotal(c);
-        const pagosRelacionados = pagos.filter(p => p.cotizacionId === c.id);
-        const totalPagado = pagosRelacionados.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
+        const pagosRelacionados = typeof getPagosRegistradosByCotizacionId === 'function' ? getPagosRegistradosByCotizacionId(c.id) : pagos.filter(p => String(p.cotizacionId) === String(c.id) && Number(p.monto) <= 0);
+        const totalPagado = typeof getTotalPagadoByCotizacionId === 'function' ? getTotalPagadoByCotizacionId(c.id) : Math.max(0, Number(c.anticipo) || 0) + pagosRelacionados.reduce((s, p) => s + Number(p.montoPagado || 0), 0);
         const porcentaje = montoTotal > 0 ? (totalPagado / montoTotal) * 100 : 0;
         const saldoPendiente = montoTotal - totalPagado;
         return {
