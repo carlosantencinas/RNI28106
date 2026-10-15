@@ -56,6 +56,70 @@
         });
     }
 
+
+    function editQuoteAdvance(cotizacionId) {
+        const quote = (S.cotizaciones || []).find(c => String(c.id) === String(cotizacionId));
+        if (!quote) { toast('No se encontró la cotización del anticipo.'); return; }
+        const principal = (S.pagos || []).find(p => String(p.cotizacionId) === String(cotizacionId) && Number(p.monto) > 0);
+        if (!principal) { toast('No se encontró la deuda principal asociada.'); return; }
+        const currentAdvance = Math.max(0, Number(quote.anticipo) || 0);
+        const overlay = document.createElement('div');
+        overlay.className = 'overlay';
+        overlay.innerHTML = `
+          <div class="modal" style="max-width:560px;">
+            <div class="modal-h"><h3>✏️ Editar anticipo de cotización</h3><button class="close" id="ea-close">&times;</button></div>
+            <div class="modal-body">
+              <p style="font-size:13px;color:var(--text-soft);margin:0 0 12px;">${global.esc(quote.titulo || quote.proyecto || 'Cotización')}</p>
+              <div class="field"><label>Monto del anticipo [Bs]</label><input id="ea-amount" type="number" min="0" max="${Number(principal.monto)||0}" step="0.01" value="${currentAdvance}"></div>
+              <div class="row2">
+                <div class="field"><label>Fecha del anticipo</label><input id="ea-date" type="date" value="${global.attr ? global.attr(quote.anticipoFecha || quote.fechaAceptacion || quote.fecha || '') : (quote.anticipoFecha || quote.fechaAceptacion || quote.fecha || '')}"></div>
+                <div class="field"><label>Método de pago</label><select id="ea-method">
+                  <option value="">No especificado</option>
+                  <option value="efectivo" ${quote.anticipoMetodo === 'efectivo' ? 'selected' : ''}>Efectivo</option>
+                  <option value="transferencia" ${quote.anticipoMetodo === 'transferencia' ? 'selected' : ''}>Transferencia</option>
+                  <option value="deposito" ${quote.anticipoMetodo === 'deposito' ? 'selected' : ''}>Depósito</option>
+                  <option value="cheque" ${quote.anticipoMetodo === 'cheque' ? 'selected' : ''}>Cheque</option>
+                  <option value="otro" ${quote.anticipoMetodo === 'otro' ? 'selected' : ''}>Otro</option>
+                </select></div>
+              </div>
+              <div class="field"><label>Número de comprobante</label><input id="ea-receipt" value="${global.esc(quote.anticipoComprobante || '')}"></div>
+              <div class="field"><label>Notas del anticipo</label><textarea id="ea-notes" rows="2">${global.esc(quote.anticipoNotas || '')}</textarea></div>
+              <p style="font-size:12px;color:var(--text-soft);">Al cambiar el monto se actualizará el acumulado cobrado de la deuda, sin crear un movimiento duplicado. El nuevo anticipo no puede superar el monto total ni reducir los pagos posteriores registrados.</p>
+            </div>
+            <div class="modal-foot"><button class="btn btn-ghost" id="ea-cancel">Cancelar</button><button class="btn btn-primary" id="ea-save">Guardar anticipo</button></div>
+          </div>`;
+        document.body.appendChild(overlay);
+        const close = () => overlay.remove();
+        overlay.querySelector('#ea-close').onclick = close;
+        overlay.querySelector('#ea-cancel').onclick = close;
+        overlay.addEventListener('mousedown', e => { if (e.target === overlay) close(); });
+        overlay.querySelector('#ea-save').onclick = async () => {
+          const amount = Number(overlay.querySelector('#ea-amount').value);
+          const total = Math.max(0, Number(principal.monto) || 0);
+          if (!Number.isFinite(amount) || amount < 0 || amount > total) { toast('El anticipo debe estar entre Bs 0 y el monto total.'); return; }
+          const movementTotal = (S.pagos || []).filter(p => String(p.id) !== String(principal.id) && (String(p.pagoPrincipalId || '') === String(principal.id) || (!p.pagoPrincipalId && String(p.cotizacionId || '') === String(cotizacionId)))).reduce((s,p)=>s+Math.max(0,Number(p.montoPagado)||0),0);
+          if (amount + movementTotal > total + 0.01) { toast('El anticipo más los pagos posteriores supera el monto total.'); return; }
+          const newPaid = Math.max(0, Number(principal.montoPagado)||0) + (amount - currentAdvance);
+          if (newPaid < movementTotal + amount - 0.01) { toast('El acumulado pagado no alcanza para cubrir el anticipo y los movimientos existentes.'); return; }
+          const old = { anticipo: quote.anticipo, anticipoFecha: quote.anticipoFecha, anticipoMetodo: quote.anticipoMetodo, anticipoComprobante: quote.anticipoComprobante, anticipoNotas: quote.anticipoNotas, montoPagado: principal.montoPagado };
+          quote.anticipo = amount;
+          quote.anticipoFecha = overlay.querySelector('#ea-date').value;
+          quote.anticipoMetodo = overlay.querySelector('#ea-method').value;
+          quote.anticipoComprobante = overlay.querySelector('#ea-receipt').value.trim();
+          quote.anticipoNotas = overlay.querySelector('#ea-notes').value.trim();
+          principal.montoPagado = Math.min(total, newPaid);
+          try {
+            await Promise.all([saveCotizaciones(S.user?.uid), savePagos(S.user?.uid)]);
+            close(); render(); toast('Anticipo actualizado correctamente.');
+          } catch (error) {
+            Object.assign(quote, { anticipo: old.anticipo, anticipoFecha: old.anticipoFecha, anticipoMetodo: old.anticipoMetodo, anticipoComprobante: old.anticipoComprobante, anticipoNotas: old.anticipoNotas });
+            principal.montoPagado = old.montoPagado;
+            console.error('Error al actualizar anticipo:', error);
+            toast('No se pudo guardar el anticipo. Revisa la conexión e inténtalo de nuevo.');
+          }
+        };
+    }
+
     function enhanceAdministrativeView() {
         const main = document.getElementById('main');
         if (!main) return;
@@ -66,6 +130,11 @@
             if (docKpi) { docKpi.innerHTML=`<div class="label">📄 Documentos</div><div class="val">${Array.isArray(S.documentos)?S.documentos.length:0}</div><div class="sub">Gestionar en Documentos →</div>`; docKpi.style.cursor='pointer'; docKpi.onclick=()=>{S.view='documentos';render();}; }
             const d=main.querySelector('.page-head p:not(.eyebrow)'); if(d)d.textContent='Panel financiero de la empresa.';
             enhanceAdminPayments();
+            main.querySelectorAll('[data-edit-anticipo]').forEach(btn => {
+                if (btn.dataset.anticipoBound) return;
+                btn.dataset.anticipoBound = '1';
+                btn.addEventListener('click', () => editQuoteAdvance(btn.dataset.editAnticipo));
+            });
         }
     }
 
