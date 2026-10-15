@@ -36,16 +36,13 @@ function normalizePagoMonto(value) {
 
 function getTotalPagadoByCotizacionId(cotizacionId) {
     const principal = getPagoPrincipalByCotizacionId(cotizacionId);
-    const registrados = getPagosRegistradosByCotizacionId(cotizacionId);
-
-    if (registrados.length > 0) {
-        return registrados.reduce(
-            (total, pago) => total + normalizePagoMonto(pago.montoPagado),
-            0
-        );
-    }
-
-    return principal ? normalizePagoMonto(principal.montoPagado) : 0;
+    // El principal conserva el acumulado de pagos recibidos, incluido el anticipo.
+    // Los movimientos asociados son historial y no deben volver a sumarse.
+    if (principal) return normalizePagoMonto(principal.montoPagado);
+    // Compatibilidad con registros antiguos que solo contienen movimientos.
+    return getPagosRegistradosByCotizacionId(cotizacionId).reduce(
+        (total, pago) => total + normalizePagoMonto(pago.montoPagado), 0
+    );
 }
 
 function getMontoTotalDeuda(cotizacion) {
