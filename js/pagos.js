@@ -36,13 +36,15 @@ function normalizePagoMonto(value) {
 
 function getTotalPagadoByCotizacionId(cotizacionId) {
     const principal = getPagoPrincipalByCotizacionId(cotizacionId);
-    // El principal conserva el acumulado de pagos recibidos, incluido el anticipo.
-    // Los movimientos asociados son historial y no deben volver a sumarse.
-    if (principal) return normalizePagoMonto(principal.montoPagado);
-    // Compatibilidad con registros antiguos que solo contienen movimientos.
-    return getPagosRegistradosByCotizacionId(cotizacionId).reduce(
-        (total, pago) => total + normalizePagoMonto(pago.montoPagado), 0
-    );
+    const registros = getPagosByCotizacionId(cotizacionId);
+    const movimientosVinculados = principal && registros.some(p => String(p.id) !== String(principal.id) && String(p.pagoPrincipalId || '') === String(principal.id));
+    // En el modelo actual el principal guarda el acumulado; los movimientos
+    // vinculados son historial y no deben sumarse otra vez.
+    if (principal && (principal.esPagoPrincipal === true || movimientosVinculados)) {
+        return normalizePagoMonto(principal.montoPagado);
+    }
+    // Compatibilidad con el esquema antiguo: cada pago podía repetir el monto total.
+    return registros.reduce((total, pago) => total + normalizePagoMonto(pago.montoPagado), 0);
 }
 
 function getMontoTotalDeuda(cotizacion) {
